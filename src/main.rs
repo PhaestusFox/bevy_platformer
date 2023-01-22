@@ -8,6 +8,7 @@ fn main() {
     .add_startup_system(spawn_player)
     .add_system(animate_sprite)
     .add_system(move_player)
+    .add_system(change_player_animation)
     .register_type::<TextureAtlasSprite>()
     .run()
 }
@@ -83,4 +84,46 @@ fn move_player(
         player.translation.x += MOVE_SPEED * time.delta_seconds();
     }
 }
+
+fn change_player_animation(
+    mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite), With<Player>>,
+    input: Res<Input<KeyCode>>,
+    mut texture_atlas: ResMut<Assets<TextureAtlas>>,
+    asset_server: Res<AssetServer>,
+) {
+    let (mut atlas, mut animation, mut sprite) = player.single_mut();
+    
+    // if any move keys pressed set run sprite
+    if input.any_just_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
+        let new_atlas = TextureAtlas::from_grid(
+            asset_server.load("Main Characters/Mask Dude/Run (32x32).png"),
+            Vec2::splat(32.),
+            12, 1, None, None);
+        *atlas = texture_atlas.add(new_atlas);
+        animation.len = 12;
+        sprite.index = 0;
+    }
+
+    //if no move keys pressed set idel animtaion
+    if input.any_just_released([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right])
+    && !input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
+        let new_atlas = TextureAtlas::from_grid(
+            asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
+            Vec2::splat(32.),
+            11, 1, None, None);
+        *atlas = texture_atlas.add(new_atlas);
+        animation.len = 11;
+        sprite.index = 0;
+    }
+
+    if input.any_just_pressed([KeyCode::A, KeyCode::Left]) {
+        sprite.flip_x = true;
+    } else if input.any_just_pressed([KeyCode::D, KeyCode::Right])
+    && !input.any_pressed([KeyCode::A, KeyCode::Left]) {
+        sprite.flip_x = false;
+    } else if input.any_just_released([KeyCode::A, KeyCode::Left])
+    && !input.any_pressed([KeyCode::A, KeyCode::Left])
+    && input.any_pressed([KeyCode::D, KeyCode::Right]) {
+        sprite.flip_x = false;
+    }
 }

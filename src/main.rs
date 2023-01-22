@@ -3,6 +3,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
     .add_plugins(DefaultPlugins)
+    .add_plugin(bevy_editor_pls::prelude::EditorPlugin)
     .add_startup_system(spawn_cam)
     .add_startup_system(spawn_player)
     .run()

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::prelude::*;
 
 fn main() {
@@ -9,7 +11,7 @@ fn main() {
     .add_system(animate_sprite)
     .add_system(move_player)
     .add_system(change_player_animation)
-    .register_type::<TextureAtlasSprite>()
+    .init_resource::<PlayerAnimations>()
     .run()
 }
 
@@ -24,27 +26,20 @@ struct Player;
 
 fn spawn_player(
     mut commands: Commands,
-    mut texture_atlas: ResMut<Assets<TextureAtlas>>,
-    asset_server: Res<AssetServer>,
+    animaitons: Res<PlayerAnimations>,
 ) {
-    let atlas = TextureAtlas::from_grid(
-        asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
-        Vec2::splat(32.),
-        11, 1, None, None);
+    let Some((texture_atlas, animation)) = animaitons.get(Animation::Idle) else {error!("Failed to find animation: Idle"); return;};
     commands.spawn((SpriteSheetBundle {
-        texture_atlas: texture_atlas.add(atlas),
+        texture_atlas,
         sprite: TextureAtlasSprite {index: 0, ..Default::default()},
         ..Default::default()
     }, Player,
-    SpriteAnimation {
-        len: 11,
-        frame_time: 1./10.,
-    },
+    animation,
     FrameTime(0.0)
     ));
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 struct SpriteAnimation {
     len: usize,
     frame_time: f32,
@@ -88,31 +83,24 @@ fn move_player(
 fn change_player_animation(
     mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite), With<Player>>,
     input: Res<Input<KeyCode>>,
-    mut texture_atlas: ResMut<Assets<TextureAtlas>>,
-    asset_server: Res<AssetServer>,
+    animaitons: Res<PlayerAnimations>,
 ) {
     let (mut atlas, mut animation, mut sprite) = player.single_mut();
     
     // if any move keys pressed set run sprite
     if input.any_just_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
-        let new_atlas = TextureAtlas::from_grid(
-            asset_server.load("Main Characters/Mask Dude/Run (32x32).png"),
-            Vec2::splat(32.),
-            12, 1, None, None);
-        *atlas = texture_atlas.add(new_atlas);
-        animation.len = 12;
+        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Run) else {error!("No Animation Run Loaded"); return;};
+        *atlas = new_atlas;
+        *animation = new_animaiton;
         sprite.index = 0;
     }
 
     //if no move keys pressed set idel animtaion
     if input.any_just_released([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right])
     && !input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
-        let new_atlas = TextureAtlas::from_grid(
-            asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
-            Vec2::splat(32.),
-            11, 1, None, None);
-        *atlas = texture_atlas.add(new_atlas);
-        animation.len = 11;
+        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Idle) else {error!("No Animation Idle Loaded"); return;};
+        *atlas = new_atlas;
+        *animation = new_animaiton;
         sprite.index = 0;
     }
 
@@ -126,4 +114,46 @@ fn change_player_animation(
     && input.any_pressed([KeyCode::D, KeyCode::Right]) {
         sprite.flip_x = false;
     }
+}
+
+#[derive(Resource)]
+struct PlayerAnimations {
+    map: HashMap<Animation, (Handle<TextureAtlas>, SpriteAnimation)>,
+}
+
+impl FromWorld for PlayerAnimations {
+    fn from_world(world: &mut World) -> Self {
+        let mut map = PlayerAnimations {map: HashMap::new()};
+        let asset_server = world.resource::<AssetServer>();
+        let idel_atlas = TextureAtlas::from_grid(
+            asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
+            Vec2::splat(32.),
+            11, 1, None, None);
+        let run_atlas = TextureAtlas::from_grid(
+            asset_server.load("Main Characters/Mask Dude/Run (32x32).png"),
+            Vec2::splat(32.),
+            12, 1, None, None);
+        
+        let mut texture_atles = world.resource_mut::<Assets<TextureAtlas>>();
+        
+        map.add(Animation::Idle, texture_atles.add(idel_atlas), SpriteAnimation { len: 11, frame_time: 1./10. });
+        map.add(Animation::Run, texture_atles.add(run_atlas), SpriteAnimation { len: 12, frame_time: 1./10. });
+        
+        map
+    }
+}
+
+impl PlayerAnimations {
+    fn add(&mut self, id: Animation, handle: Handle<TextureAtlas>, animation: SpriteAnimation) {
+        self.map.insert(id, (handle, animation));
+    }
+    fn get(&self, id: Animation) -> Option<(Handle<TextureAtlas>, SpriteAnimation)> {
+        self.map.get(&id).cloned()
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum Animation {
+    Run,
+    Idle,
 }

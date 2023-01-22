@@ -7,6 +7,7 @@ fn main() {
     .add_startup_system(spawn_cam)
     .add_startup_system(spawn_player)
     .add_system(animate_sprite)
+    .add_system(move_player)
     .register_type::<TextureAtlasSprite>()
     .run()
 }
@@ -52,10 +53,10 @@ struct SpriteAnimation {
 struct FrameTime(f32);
 
 fn animate_sprite(
-    mut query: Query<(&mut TextureAtlasSprite, &SpriteAnimation, &mut FrameTime)>,
+    mut animations: Query<(&mut TextureAtlasSprite, &SpriteAnimation, &mut FrameTime)>,
     time: Res<Time>,
 ) {
-    for (mut sprite, animation, mut frame_time) in query.iter_mut() {
+    for (mut sprite, animation, mut frame_time) in animations.iter_mut() {
         frame_time.0 += time.delta_seconds();
         if frame_time.0 > animation.frame_time {
             let frames = (frame_time.0 / animation.frame_time) as usize;
@@ -66,4 +67,20 @@ fn animate_sprite(
             frame_time.0 -= animation.frame_time;
         }
     }
+}
+
+const MOVE_SPEED: f32 = 100.;
+
+fn move_player(
+    mut player: Query<&mut Transform, With<Player>>,
+    time: Res<Time>,
+    input: Res<Input<KeyCode>>,
+) {
+    let mut player = player.single_mut();
+    if input.any_pressed([KeyCode::A, KeyCode::Left]) {
+        player.translation.x -= MOVE_SPEED * time.delta_seconds();
+    } else if input.any_pressed([KeyCode::D, KeyCode::Right]) {
+        player.translation.x += MOVE_SPEED * time.delta_seconds();
+    }
+}
 }

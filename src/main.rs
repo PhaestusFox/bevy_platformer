@@ -26,10 +26,10 @@ fn spawn_player(
         asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
         Vec2::splat(32.),
         1, 11, None, None);
-    commands.spawn(SpriteSheetBundle {
+    commands.spawn((SpriteSheetBundle {
         texture_atlas: texture_atlas.add(atlas),
         sprite: TextureAtlasSprite {index: 0, ..Default::default()},
         ..Default::default()
-    });
+    }, Player));
 }
 

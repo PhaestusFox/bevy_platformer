@@ -14,6 +14,7 @@ fn main() {
     .init_resource::<PlayerAnimations>()
     .add_system(player_fall)
     .add_system(player_jump)
+    .add_system(ground_detection)
     .run()
 }
 
@@ -37,7 +38,8 @@ fn spawn_player(
         ..Default::default()
     }, Player,
     animation,
-    FrameTime(0.0)
+    FrameTime(0.0),
+    Grounded(true),
     ));
 }
 
@@ -87,13 +89,12 @@ fn move_player(
 
 fn change_player_animation(
     mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite), With<Player>>,
-    player_jump: Query<(&Transform, Option<&Jump>), With<Player>>,
+    player_jump: Query<(Option<&Jump>, &Grounded), With<Player>>,
     input: Res<Input<KeyCode>>,
     animaitons: Res<PlayerAnimations>,
 ) {
     let (mut atlas, mut animation, mut sprite) = player.single_mut();
-    let (pos, jump) = player_jump.single();
-    
+    let (jump, grounded) = player_jump.single();
     if input.any_just_pressed([KeyCode::A, KeyCode::Left]) {
         sprite.flip_x = true;
     } else if input.any_just_pressed([KeyCode::D, KeyCode::Right])
@@ -109,10 +110,10 @@ fn change_player_animation(
     //Jumping if jump
     if jump.is_some() {
         Animation::Jump
-    //Falling if Y > 0.0
-    } else if pos.translation.y > 0.0 {
+    //Falling if no on ground
+    } else if !grounded.0 {
         Animation::Fall
-        // if any move keys pressed set run sprite
+    // if any move keys pressed set run sprite
     } else if input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
         Animation::Run
     } else {
@@ -209,4 +210,26 @@ fn player_fall(
             player.translation.y = 0.0
         }
     }
+}
+
+#[derive(Component)]
+struct Grounded(bool);
+
+fn ground_detection(
+    mut player: Query<(&Transform, &mut Grounded), With<Player>>,
+    mut last: Local<Transform>,
+) {
+    let (pos,mut on_ground) = player.single_mut();
+
+    let current = if pos.translation.y == last.translation.y {
+        true
+    } else {
+        false
+    };
+
+    if current != on_ground.0 {
+        on_ground.0 = current;
+    }
+
+    *last = *pos;
 }

@@ -15,6 +15,7 @@ fn main() {
     .add_system(player_fall)
     .add_system(player_jump)
     .add_system(ground_detection)
+    .add_startup_system(spawn_map)
     .run()
 }
 
@@ -22,6 +23,31 @@ fn spawn_cam(
     mut commands: Commands,
 ) {
     commands.spawn(Camera2dBundle::default());
+}
+
+fn spawn_map(mut commands: Commands) {
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform::from_translation(Vec3::NEG_Y * 16.),
+            sprite: Sprite { custom_size: Some(Vec2::new(200., 5.)),
+                color: Color::WHITE,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        HitBox(Vec2::new(200., 5.)),
+    ));
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform::from_translation(Vec3::new(100., 25., 0.)),
+            sprite: Sprite { custom_size: Some(Vec2::new(32., 32.)),
+                color: Color::WHITE,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        HitBox(Vec2::new(32., 32.)),
+    ));
 }
 
 #[derive(Component)]
@@ -40,6 +66,7 @@ fn spawn_player(
     animation,
     FrameTime(0.0),
     Grounded(true),
+    HitBox(Vec2::splat(32.)),
     ));
 }
 
@@ -73,18 +100,27 @@ const MOVE_SPEED: f32 = 100.;
 
 fn move_player(
     mut commands: Commands,
-    mut player: Query<(Entity, &mut Transform), With<Player>>,
+    mut player: Query<(Entity, &mut Transform, &Grounded, &HitBox), With<Player>>,
+    hitboxs: Query<(&HitBox, &Transform), Without<Player>>,
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
 ) {
-    let (entity, mut player) = player.single_mut();
-    if input.any_just_pressed([KeyCode::W, KeyCode::Up, KeyCode::Space]) {
+    let (entity, mut p_offset, grounded, &p_hitbox) = player.single_mut();
+    let delat = if input.any_just_pressed([KeyCode::W, KeyCode::Up, KeyCode::Space]) && grounded.0 {
         commands.entity(entity).insert(Jump(100.));
+        return;
     } else if input.any_pressed([KeyCode::A, KeyCode::Left]) {
-        player.translation.x -= MOVE_SPEED * time.delta_seconds();
+        -MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
     } else if input.any_pressed([KeyCode::D, KeyCode::Right]) {
-        player.translation.x += MOVE_SPEED * time.delta_seconds();
+        MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
+    } else {
+        return;
+    };
+    let new_pos = p_offset.translation + Vec3::X * delat;
+    for (&hitbox, offset) in &hitboxs {
+        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {return;}
     }
+    p_offset.translation = new_pos;
 }
 
 fn change_player_animation(
@@ -200,16 +236,16 @@ fn player_jump(
 }
 
 fn player_fall(
-    mut player: Query<&mut Transform, (With<Player>, Without<Jump>)>,
+    mut player: Query<(&mut Transform, &HitBox), (With<Player>, Without<Jump>)>,
+    hitboxs: Query<(&HitBox, &Transform), Without<Player>>,
     time: Res<Time>,
 ) {
-    let Ok(mut player) = player.get_single_mut() else {return;};
-    if player.translation.y > 0.0 {
-        player.translation.y -= time.delta_seconds() * FALL_SPEED;
-        if player.translation.y < 0.0 {
-            player.translation.y = 0.0
-        }
+    let Ok((mut p_offset, &p_hitbox)) = player.get_single_mut() else {return;};
+    let new_pos = p_offset.translation - Vec3::Y * FALL_SPEED * time.delta_seconds();
+    for (&hitbox, offset) in &hitboxs {
+        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {return;}
     }
+    p_offset.translation = new_pos;
 }
 
 #[derive(Component)]
@@ -232,4 +268,17 @@ fn ground_detection(
     }
 
     *last = *pos;
+}
+
+#[derive(Debug, Component, Clone, Copy)]
+struct HitBox(Vec2);
+
+fn check_hit(hitbox: HitBox, offset: Vec3, other_hitbox: HitBox, other_offset: Vec3) -> bool {
+    let h_size = hitbox.0.y /2.;
+    let oh_size = other_hitbox.0.y /2.;
+    let w_size = hitbox.0.x /2.;
+    let ow_size = other_hitbox.0.x /2.;
+
+    offset.x + w_size > other_offset.x - ow_size && offset.x - w_size < other_offset.x + ow_size &&
+    offset.y + h_size > other_offset.y - oh_size && offset.y - h_size < other_offset.y + oh_size
 }

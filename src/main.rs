@@ -105,39 +105,24 @@ fn change_player_animation(
         sprite.flip_x = false;
     }
     
+    let set = 
     //Jumping if jump
     if jump.is_some() {
-        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Jump) else {error!("No Animation Jump Loaded"); return;};
-        *atlas = new_atlas;
-        *animation = new_animaiton;
-        sprite.index = 0;
-        return;
+        Animation::Jump
     //Falling if Y > 0.0
     } else if pos.translation.y > 0.0 {
-        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Fall) else {error!("No Animation Fall Loaded"); return;};
-        *atlas = new_atlas;
-        *animation = new_animaiton;
-        sprite.index = 0;
-        return;
-    }
+        Animation::Fall
+        // if any move keys pressed set run sprite
+    } else if input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
+        Animation::Run
+    } else {
+        Animation::Idle
+    };
 
-    // if any move keys pressed set run sprite
-    if input.any_just_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
-        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Run) else {error!("No Animation Run Loaded"); return;};
-        *atlas = new_atlas;
-        *animation = new_animaiton;
-        sprite.index = 0;
-    }
-
-    //if no move keys pressed set idel animtaion
-    if input.any_just_released([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right])
-    && !input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
-        let Some((new_atlas, new_animaiton)) = animaitons.get(Animation::Idle) else {error!("No Animation Idle Loaded"); return;};
-        *atlas = new_atlas;
-        *animation = new_animaiton;
-        sprite.index = 0;
-    }
-
+    let Some((new_atlas, new_animaiton)) = animaitons.get(set) else {error!("No Animation Jump Loaded"); return;};
+    *atlas = new_atlas;
+    sprite.index %= new_animaiton.len;
+    *animation = new_animaiton;
 }
 
 #[derive(Resource)]

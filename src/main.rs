@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use rand::Rng;
 
 fn main() {
     App::new()
@@ -35,7 +36,7 @@ fn spawn_map(
 ) {
     commands.spawn((
         SpriteSheetBundle {
-            transform: Transform::from_translation(Vec3::NEG_Y * 16.),
+            transform: Transform::from_translation(Vec3::NEG_Y * 32.),
             sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(168., 16.)),
                 color: Color::WHITE,
                 index: TerrainType::GoldStright as usize,
@@ -69,7 +70,7 @@ fn spawn_map(
     });
     commands.spawn((
         SpriteSheetBundle {
-            transform: Transform::from_translation(Vec3::new(100., 25., 0.)),
+            transform: Transform::from_translation(Vec3::new(110., 20., 0.)),
             sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(32., 32.)),
                 color: Color::WHITE,
                 index: TerrainType::GoldLeftEnd as usize,
@@ -87,7 +88,7 @@ fn spawn_map(
                 texture_atlas,
                 ..Default::default()
             },
-            HitBox(Vec2::new(32., 32.)),
+            HitBox(Vec2::new(16., 16.)),
             animation,
             FrameTime(0.0),
             Trigger,
@@ -347,13 +348,13 @@ struct Collectable;
 
 fn get_collectable(
     player: Query<(&Transform, &HitBox), With<Player>>,
-    triggers: Query<(Entity, &Transform, &HitBox), (With<Collectable>, Without<Player>)>,
-    mut commands: Commands,
+    mut triggers: Query<(&mut Transform, &HitBox), (With<Collectable>, Without<Player>)>,
 ) {
     let (p_transform, &p_hitbox) = player.single();
-    for (entity, t_transform, &t_hitbox) in &triggers {
+    for (mut t_transform, &t_hitbox) in &mut triggers {
         if check_hit(p_hitbox, p_transform.translation, t_hitbox, t_transform.translation) {
-            commands.entity(entity).despawn();
+            t_transform.translation.x = rand::thread_rng().gen_range(-100.0..100.);
+            t_transform.translation.y = rand::thread_rng().gen_range(-10.0..75.);
         }
     }
 }

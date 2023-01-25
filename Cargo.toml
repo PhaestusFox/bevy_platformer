@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bevy = "0.9"
 bevy_editor_pls = {git = "https://github.com/jakobhellermann/bevy_editor_pls"}
+rand = "0.8"
 
 [profile.dev.package."*"]
 opt-level = 3

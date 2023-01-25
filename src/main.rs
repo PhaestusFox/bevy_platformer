@@ -91,6 +91,7 @@ fn spawn_map(
             animation,
             FrameTime(0.0),
             Trigger,
+            Collectable,
         ));
     }
 }
@@ -341,9 +342,12 @@ fn check_hit(hitbox: HitBox, offset: Vec3, other_hitbox: HitBox, other_offset: V
 #[derive(Component)]
 struct Trigger;
 
+#[derive(Component)]
+struct Collectable;
+
 fn get_collectable(
     player: Query<(&Transform, &HitBox), With<Player>>,
-    triggers: Query<(Entity, &Transform, &HitBox), (With<Trigger>, Without<Player>)>,
+    triggers: Query<(Entity, &Transform, &HitBox), (With<Collectable>, Without<Player>)>,
     mut commands: Commands,
 ) {
     let (p_transform, &p_hitbox) = player.single();

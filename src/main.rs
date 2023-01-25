@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-    .add_plugins(DefaultPlugins)
+    .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
     .add_plugin(bevy_editor_pls::prelude::EditorPlugin)
     .add_startup_system(spawn_cam)
     .add_startup_system(spawn_player)
@@ -17,6 +17,8 @@ fn main() {
     .add_system(ground_detection)
     .add_startup_system(spawn_map)
     .add_system(get_collectable)
+    .init_resource::<TerrainSprites>()
+    .register_type::<TextureAtlasSprite>()
     .run()
 }
 
@@ -29,25 +31,51 @@ fn spawn_cam(
 fn spawn_map(
     mut commands: Commands,
     animations: Res<Animations>,
+    terrain: Res<TerrainSprites>,
 ) {
     commands.spawn((
-        SpriteBundle {
+        SpriteSheetBundle {
             transform: Transform::from_translation(Vec3::NEG_Y * 16.),
-            sprite: Sprite { custom_size: Some(Vec2::new(200., 5.)),
+            sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(168., 16.)),
                 color: Color::WHITE,
+                index: TerrainType::GoldStright as usize,
                 ..Default::default()
             },
+            texture_atlas: terrain.get_atlas(),
             ..Default::default()
         },
-        HitBox(Vec2::new(200., 5.)),
-    ));
-    commands.spawn((
-        SpriteBundle {
-            transform: Transform::from_translation(Vec3::new(100., 25., 0.)),
-            sprite: Sprite { custom_size: Some(Vec2::new(32., 32.)),
+        HitBox(Vec2::new(200., 16.)),
+    )).with_children(|p| {
+        p.spawn(SpriteSheetBundle {
+            transform: Transform::from_translation(Vec3::X * 92.),
+            sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(16., 16.)),
                 color: Color::WHITE,
+                index: TerrainType::GoldRightEnd as usize,
                 ..Default::default()
             },
+            texture_atlas: terrain.get_atlas(),
+            ..Default::default()
+        });
+        p.spawn(SpriteSheetBundle {
+            transform: Transform::from_translation(Vec3::NEG_X * 92.),
+            sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(16., 16.)),
+                color: Color::WHITE,
+                index: TerrainType::GoldLeftEnd as usize,
+                ..Default::default()
+            },
+            texture_atlas: terrain.get_atlas(),
+            ..Default::default()
+        });
+    });
+    commands.spawn((
+        SpriteSheetBundle {
+            transform: Transform::from_translation(Vec3::new(100., 25., 0.)),
+            sprite: TextureAtlasSprite { custom_size: Some(Vec2::new(32., 32.)),
+                color: Color::WHITE,
+                index: TerrainType::GoldLeftEnd as usize,
+                ..Default::default()
+            },
+            texture_atlas: terrain.get_atlas(),
             ..Default::default()
         },
         HitBox(Vec2::new(32., 32.)),
@@ -83,7 +111,7 @@ fn spawn_player(
     animation,
     FrameTime(0.0),
     Grounded(true),
-    HitBox(Vec2::splat(32.)),
+    HitBox(Vec2::new(18., 32.)),
     ));
 }
 
@@ -250,13 +278,14 @@ const FALL_SPEED: f32 = 98.0;
 fn player_jump(
     mut commands: Commands,
     mut player: Query<(Entity, &mut Transform, &mut Jump), With<Player>>,
+    input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let Ok((player, mut transform,mut jump)) = player.get_single_mut() else {return;};
     let jump_power = (time.delta_seconds() * FALL_SPEED * 2.).min(jump.0);
-    jump.0 -= jump_power;
     transform.translation.y += jump_power;
-    if jump.0 == 0. {
+    jump.0 -= if input.any_pressed([KeyCode::W, KeyCode::Up, KeyCode::Space]) {jump_power} else {jump_power * 2.};
+    if jump.0 <= 0. {
         commands.entity(player).remove::<Jump>();
     }
 }
@@ -323,4 +352,32 @@ fn get_collectable(
             commands.entity(entity).despawn();
         }
     }
+}
+
+#[derive(Resource)]
+struct TerrainSprites(Handle<TextureAtlas>);
+
+impl TerrainSprites {
+    fn new(handle: Handle<TextureAtlas>) -> TerrainSprites {
+        TerrainSprites(handle)
+    }
+    fn get_atlas(&self) -> Handle<TextureAtlas> {
+        self.0.clone()
+    }
+}
+
+impl FromWorld for TerrainSprites {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.resource::<AssetServer>();
+        let texture_atles = TextureAtlas::from_grid(asset_server.load("Terrain/Terrain (16x16).png"), Vec2::splat(16.), 22, 11, None, None);
+        let mut assets = world.resource_mut::<Assets<TextureAtlas>>();
+        TerrainSprites::new(assets.add(texture_atles))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum TerrainType {
+    GoldLeftEnd = 193,
+    GoldStright = 194,
+    GoldRightEnd = 195,
 }

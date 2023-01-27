@@ -22,6 +22,7 @@ fn main() {
     .add_system(ground_detection)
     .add_startup_system(spawn_map)
     .add_system(get_collectable)
+    .add_system(dubble_jump)
     .init_resource::<TerrainSprites>()
     .register_type::<TextureAtlasSprite>()
     .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
@@ -124,7 +125,8 @@ fn spawn_player(
     InputManagerBundle {
         input_map: PlayerInput::player_one(),
         ..Default::default()
-    }
+    },
+    Jump(0., false)
     ));
 }
 
@@ -138,7 +140,7 @@ fn move_player(
 ) {
     let (entity, mut p_offset, grounded, &p_hitbox, input) = player.single_mut();
     let delat = if input.just_pressed(PlayerInput::Jump) && grounded.0 {
-        commands.entity(entity).insert(Jump(100.));
+        commands.entity(entity).insert(Jump(100., true));
         return;
     } else if input.pressed(PlayerInput::Left) {
         -MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
@@ -154,34 +156,44 @@ fn move_player(
     p_offset.translation = new_pos;
 }
 
+fn dubble_jump(
+    mut player: Query<(&mut Jump, &ActionState<PlayerInput>), With<Player>>,
+) {
+    let (mut jump, input) = player.single_mut();
+    if input.just_pressed(PlayerInput::Jump) && jump.1 {
+        jump.0 = 100.;
+        jump.1 = false;
+    }
+}
+
 #[derive(Component)]
-struct Jump(f32);
+struct Jump(f32, bool);
 
 const FALL_SPEED: f32 = 98.0;
 
 fn player_jump(
-    mut commands: Commands,
-    mut player: Query<(Entity, &mut Transform, &mut Jump, &ActionState<PlayerInput>), With<Player>>,
+    mut player: Query<(&mut Transform, &mut Jump, &ActionState<PlayerInput>), With<Player>>,
     time: Res<Time>,
 ) {
-    let Ok((player, mut transform,mut jump, input)) = player.get_single_mut() else {return;};
+    let (mut transform,mut jump, input) = player.single_mut();
+    if jump.0 <= 0. {
+        return;
+    }
     let jump_power = (time.delta_seconds() * FALL_SPEED * 2.).min(jump.0);
     transform.translation.y += jump_power;
-    jump.0 -= if input.pressed(PlayerInput::Jump) {jump_power} else {jump_power * 2.};
-    if jump.0 <= 0. {
-        commands.entity(player).remove::<Jump>();
-    }
+    jump.0 -= if input.pressed(PlayerInput::Fall) {jump.0} else {jump_power};
 }
 
 fn player_fall(
-    mut player: Query<(&mut Transform, &HitBox), (With<Player>, Without<Jump>)>,
+    mut player: Query<(&mut Transform, &HitBox, &mut Jump), With<Player>>,
     hitboxs: Query<(&HitBox, &Transform), (Without<Player>, Without<Trigger>)>,
     time: Res<Time>,
 ) {
-    let Ok((mut p_offset, &p_hitbox)) = player.get_single_mut() else {return;};
+    let (mut p_offset, &p_hitbox, mut jump) = player.single_mut();
+    if jump.0 > 0. {return;}
     let new_pos = p_offset.translation - Vec3::Y * FALL_SPEED * time.delta_seconds();
     for (&hitbox, offset) in &hitboxs {
-        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {return;}
+        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {jump.1 = true; return;}
     }
     p_offset.translation = new_pos;
 }
@@ -235,7 +247,7 @@ fn get_collectable(
     for (mut t_transform, &t_hitbox) in &mut triggers {
         if check_hit(p_hitbox, p_transform.translation, t_hitbox, t_transform.translation) {
             t_transform.translation.x = rand::thread_rng().gen_range(-100.0..100.);
-            t_transform.translation.y = rand::thread_rng().gen_range(-10.0..75.);
+            t_transform.translation.y = rand::thread_rng().gen_range(-10.0..150.);
         }
     }
 }

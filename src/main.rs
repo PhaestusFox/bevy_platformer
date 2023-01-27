@@ -1,18 +1,18 @@
-use std::collections::HashMap;
-
 use bevy::prelude::*;
 use rand::Rng;
+
+mod animation;
+
+use animation::*;
 
 fn main() {
     App::new()
     .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
     .add_plugin(bevy_editor_pls::prelude::EditorPlugin)
+    .add_plugin(PhoxAnimationPlugin)
     .add_startup_system(spawn_cam)
     .add_startup_system(spawn_player)
-    .add_system(animate_sprite)
     .add_system(move_player)
-    .add_system(change_player_animation)
-    .init_resource::<Animations>()
     .add_system(player_fall)
     .add_system(player_jump)
     .add_system(ground_detection)
@@ -102,45 +102,21 @@ struct Player;
 
 fn spawn_player(
     mut commands: Commands,
-    animaitons: Res<Animations>,
+    animations: Res<Animations>,
 ) {
-    let Some((texture_atlas, animation)) = animaitons.get(Animation::PlayerIdle) else {error!("Failed to find animation: Idle"); return;};
+    let Some((texture_atlas, animation)) = animations.get(Animation::PlayerIdle) else {error!("Failed to find animation: Idle"); return;};
     commands.spawn((SpriteSheetBundle {
         texture_atlas,
         sprite: TextureAtlasSprite {index: 0, ..Default::default()},
         ..Default::default()
     }, Player,
-    animation,
-    FrameTime(0.0),
+    PhoxAnimationBundle{
+        animation,
+        frame_time: FrameTime(0.),
+    },
     Grounded(true),
     HitBox(Vec2::new(18., 32.)),
     ));
-}
-
-#[derive(Component, Clone, Copy)]
-struct SpriteAnimation {
-    len: usize,
-    frame_time: f32,
-}
-
-#[derive(Component)]
-struct FrameTime(f32);
-
-fn animate_sprite(
-    mut animations: Query<(&mut TextureAtlasSprite, &SpriteAnimation, &mut FrameTime)>,
-    time: Res<Time>,
-) {
-    for (mut sprite, animation, mut frame_time) in animations.iter_mut() {
-        frame_time.0 += time.delta_seconds();
-        if frame_time.0 > animation.frame_time {
-            let frames = (frame_time.0 / animation.frame_time) as usize;
-            sprite.index += frames;
-            if sprite.index >= animation.len {
-                sprite.index %= animation.len;
-            }
-            frame_time.0 -= animation.frame_time;
-        }
-    }
 }
 
 const MOVE_SPEED: f32 = 100.;
@@ -168,108 +144,6 @@ fn move_player(
         if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {return;}
     }
     p_offset.translation = new_pos;
-}
-
-fn change_player_animation(
-    mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite), With<Player>>,
-    player_jump: Query<(Option<&Jump>, &Grounded), With<Player>>,
-    input: Res<Input<KeyCode>>,
-    animaitons: Res<Animations>,
-) {
-    let (mut atlas, mut animation, mut sprite) = player.single_mut();
-    let (jump, grounded) = player_jump.single();
-    if input.any_just_pressed([KeyCode::A, KeyCode::Left]) {
-        sprite.flip_x = true;
-    } else if input.any_just_pressed([KeyCode::D, KeyCode::Right])
-    && !input.any_pressed([KeyCode::A, KeyCode::Left]) {
-        sprite.flip_x = false;
-    } else if input.any_just_released([KeyCode::A, KeyCode::Left])
-    && !input.any_pressed([KeyCode::A, KeyCode::Left])
-    && input.any_pressed([KeyCode::D, KeyCode::Right]) {
-        sprite.flip_x = false;
-    }
-    
-    let set = 
-    //Jumping if jump
-    if jump.is_some() {
-        Animation::PlayerJump
-    //Falling if no on ground
-    } else if !grounded.0 {
-        Animation::PlayerFall
-    // if any move keys pressed set run sprite
-    } else if input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
-        Animation::PlayerRun
-    } else {
-        Animation::PlayerIdle
-    };
-
-    let Some((new_atlas, new_animaiton)) = animaitons.get(set) else {error!("No Animation Jump Loaded"); return;};
-    *atlas = new_atlas;
-    sprite.index %= new_animaiton.len;
-    *animation = new_animaiton;
-}
-
-#[derive(Resource)]
-struct Animations {
-    map: HashMap<Animation, (Handle<TextureAtlas>, SpriteAnimation)>,
-}
-
-impl FromWorld for Animations {
-    fn from_world(world: &mut World) -> Self {
-        let mut map = Animations {map: HashMap::new()};
-        world.resource_scope(|world, mut texture_atles: Mut<Assets<TextureAtlas>>| {
-            let asset_server = world.resource::<AssetServer>();
-            let idel_atlas = TextureAtlas::from_grid(
-                asset_server.load("Main Characters/Mask Dude/Idle (32x32).png"),
-                Vec2::splat(32.),
-                11, 1, None, None);
-            map.add(Animation::PlayerIdle, texture_atles.add(idel_atlas), SpriteAnimation { len: 11, frame_time: 1./20. });
-            
-            let run_atlas = TextureAtlas::from_grid(
-                asset_server.load("Main Characters/Mask Dude/Run (32x32).png"),
-                Vec2::splat(32.),
-                12, 1, None, None);
-            map.add(Animation::PlayerRun, texture_atles.add(run_atlas), SpriteAnimation { len: 12, frame_time: 1./20. });
-            
-            let jump_atlas = TextureAtlas::from_grid(
-                asset_server.load("Main Characters/Mask Dude/Jump (32x32).png"),
-                Vec2::splat(32.),
-                1, 1, None, None);
-            map.add(Animation::PlayerJump, texture_atles.add(jump_atlas), SpriteAnimation { len: 1, frame_time: 1. });
-            
-            let fall_atlas = TextureAtlas::from_grid(
-                asset_server.load("Main Characters/Mask Dude/Fall (32x32).png"),
-                Vec2::splat(32.),
-                1, 1, None, None);
-            map.add(Animation::PlayerFall, texture_atles.add(fall_atlas), SpriteAnimation { len: 1, frame_time: 1. });
-                
-            let strawberry_atlas = TextureAtlas::from_grid(
-                asset_server.load("Items/Fruits/Strawberry.png"),
-                Vec2::splat(32.),
-                17, 1, None, None);
-            map.add(Animation::Strawberry, texture_atles.add(strawberry_atlas), SpriteAnimation { len: 17, frame_time: 1./20. });
-        });
-
-        map
-    }
-}
-
-impl Animations {
-    fn add(&mut self, id: Animation, handle: Handle<TextureAtlas>, animation: SpriteAnimation) {
-        self.map.insert(id, (handle, animation));
-    }
-    fn get(&self, id: Animation) -> Option<(Handle<TextureAtlas>, SpriteAnimation)> {
-        self.map.get(&id).cloned()
-    }
-}
-
-#[derive(Debug, Hash, PartialEq, Eq)]
-enum Animation {
-    PlayerRun,
-    PlayerIdle,
-    PlayerJump,
-    PlayerFall,
-    Strawberry,
 }
 
 #[derive(Component)]

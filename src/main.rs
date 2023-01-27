@@ -1,7 +1,8 @@
 use bevy::prelude::*;
+use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use rand::Rng;
 use leafwing_input_manager::prelude::*;
-
+use bevy_rapier2d::prelude::*;
 
 mod animation;
 mod user_input;
@@ -17,15 +18,17 @@ fn main() {
     .add_startup_system(spawn_cam)
     .add_startup_system(spawn_player)
     .add_system(move_player)
-    .add_system(player_fall)
-    .add_system(player_jump)
     .add_system(ground_detection)
     .add_startup_system(spawn_map)
     .add_system(get_collectable)
-    .add_system(dubble_jump)
+    .add_system(dubble_jump.before(move_player))
     .init_resource::<TerrainSprites>()
     .register_type::<TextureAtlasSprite>()
     .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
+    .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
+    .add_plugin(InspectableRapierPlugin)
+    .register_type::<Grounded>()
+    .register_type::<Jump>()
     .run()
 }
 
@@ -34,7 +37,6 @@ fn spawn_cam(
 ) {
     commands.spawn(Camera2dBundle::default());
 }
-
 fn spawn_map(
     mut commands: Commands,
     animations: Res<Animations>,
@@ -51,7 +53,8 @@ fn spawn_map(
             texture_atlas: terrain.get_atlas(),
             ..Default::default()
         },
-        HitBox(Vec2::new(200., 16.)),
+        RigidBody::Fixed,
+        Collider::cuboid(100., 8.),
     )).with_children(|p| {
         p.spawn(SpriteSheetBundle {
             transform: Transform::from_translation(Vec3::X * 92.),
@@ -85,7 +88,8 @@ fn spawn_map(
             texture_atlas: terrain.get_atlas(),
             ..Default::default()
         },
-        HitBox(Vec2::new(32., 32.)),
+        RigidBody::Fixed,
+        Collider::cuboid(16., 16.),
     ));
     if let Some((texture_atlas, animation)) = animations.get(Animation::Strawberry) {
         commands.spawn((
@@ -94,11 +98,12 @@ fn spawn_map(
                 texture_atlas,
                 ..Default::default()
             },
-            HitBox(Vec2::new(16., 16.)),
             animation,
             FrameTime(0.0),
-            Trigger,
-            Collectable,
+            RigidBody::Fixed,
+            Collider::ball(8.),
+            Sensor,
+            Collectable
         ));
     }
 }
@@ -121,93 +126,72 @@ fn spawn_player(
         frame_time: FrameTime(0.),
     },
     Grounded(true),
-    HitBox(Vec2::new(18., 32.)),
     InputManagerBundle {
         input_map: PlayerInput::player_one(),
         ..Default::default()
     },
-    Jump(0., false)
+    Jump(false),
+    RigidBody::Dynamic,
+    Velocity::default(),
+    Collider::cuboid(9., 16.),
+    LockedAxes::ROTATION_LOCKED_Z,
     ));
 }
 
 const MOVE_SPEED: f32 = 100.;
 
 fn move_player(
-    mut commands: Commands,
-    mut player: Query<(Entity, &mut Transform, &Grounded, &HitBox, &ActionState<PlayerInput>), With<Player>>,
-    hitboxs: Query<(&HitBox, &Transform), (Without<Player>, Without<Trigger>)>,
-    time: Res<Time>,
+    mut player: Query<(&mut Velocity, &ActionState<PlayerInput>, &Grounded), With<Player>>,
 ) {
-    let (entity, mut p_offset, grounded, &p_hitbox, input) = player.single_mut();
-    let delat = if input.just_pressed(PlayerInput::Jump) && grounded.0 {
-        commands.entity(entity).insert(Jump(100., true));
-        return;
+    let (mut velocity, input, grounded) = player.single_mut();
+    if input.just_pressed(PlayerInput::Jump) && grounded.0 {
+        velocity.linvel.y = 100.;
+    } else if input.just_pressed(PlayerInput::Fall) {
+        velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
-        -MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
+        velocity.linvel.x = -MOVE_SPEED;
     } else if input.pressed(PlayerInput::Right) {
-        MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
-    } else {
-        return;
+        velocity.linvel.x = MOVE_SPEED;
+    } else if input.just_released(PlayerInput::Left) {
+        velocity.linvel.x = 0.0;
+    } else if input.just_released(PlayerInput::Right) {
+        velocity.linvel.x = 0.0;
     };
-    let new_pos = p_offset.translation + Vec3::X * delat;
-    for (&hitbox, offset) in &hitboxs {
-        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {return;}
-    }
-    p_offset.translation = new_pos;
 }
 
 fn dubble_jump(
-    mut player: Query<(&mut Jump, &ActionState<PlayerInput>), With<Player>>,
+    mut player: Query<(&mut Jump, &mut Velocity, &ActionState<PlayerInput>), With<Player>>,
+    can_jump: Query<(Entity, &Grounded), Changed<Grounded>>,
 ) {
-    let (mut jump, input) = player.single_mut();
-    if input.just_pressed(PlayerInput::Jump) && jump.1 {
-        jump.0 = 100.;
-        jump.1 = false;
+    for (entity, grounded) in &can_jump {
+        if let Ok((mut jump, _, _)) = player.get_mut(entity) {
+            if grounded.0 {
+                jump.0 = true;
+            }
+        }
+    }
+    for (mut jump, mut velocity, input) in player.iter_mut() {
+        if velocity.linvel.y.abs() < 0.01 {return;}
+        if input.just_pressed(PlayerInput::Jump) && jump.0 {
+            jump.0 = false;
+            velocity.linvel.y = 100.;
+        }
     }
 }
 
-#[derive(Component)]
-struct Jump(f32, bool);
+#[derive(Component, Reflect)]
+struct Jump(bool);
 
-const FALL_SPEED: f32 = 98.0;
-
-fn player_jump(
-    mut player: Query<(&mut Transform, &mut Jump, &ActionState<PlayerInput>), With<Player>>,
-    time: Res<Time>,
-) {
-    let (mut transform,mut jump, input) = player.single_mut();
-    if jump.0 <= 0. {
-        return;
-    }
-    let jump_power = (time.delta_seconds() * FALL_SPEED * 2.).min(jump.0);
-    transform.translation.y += jump_power;
-    jump.0 -= if input.pressed(PlayerInput::Fall) {jump.0} else {jump_power};
-}
-
-fn player_fall(
-    mut player: Query<(&mut Transform, &HitBox, &mut Jump), With<Player>>,
-    hitboxs: Query<(&HitBox, &Transform), (Without<Player>, Without<Trigger>)>,
-    time: Res<Time>,
-) {
-    let (mut p_offset, &p_hitbox, mut jump) = player.single_mut();
-    if jump.0 > 0. {return;}
-    let new_pos = p_offset.translation - Vec3::Y * FALL_SPEED * time.delta_seconds();
-    for (&hitbox, offset) in &hitboxs {
-        if check_hit(p_hitbox, new_pos, hitbox, offset.translation) {jump.1 = true; return;}
-    }
-    p_offset.translation = new_pos;
-}
-
-#[derive(Component)]
+#[derive(Component, Reflect)]
 struct Grounded(bool);
 
 fn ground_detection(
     mut player: Query<(&Transform, &mut Grounded), With<Player>>,
-    mut last: Local<Transform>,
+    mut last: Local<f32>,
 ) {
     let (pos,mut on_ground) = player.single_mut();
 
-    let current = if pos.translation.y == last.translation.y {
+    let current = if (pos.translation.y * 100.).round() == *last {
         true
     } else {
         false
@@ -217,40 +201,34 @@ fn ground_detection(
         on_ground.0 = current;
     }
 
-    *last = *pos;
+    *last = (pos.translation.y * 100.).round();
 }
-
-#[derive(Debug, Component, Clone, Copy)]
-struct HitBox(Vec2);
-
-fn check_hit(hitbox: HitBox, offset: Vec3, other_hitbox: HitBox, other_offset: Vec3) -> bool {
-    let h_size = hitbox.0.y / 2.;
-    let oh_size = other_hitbox.0.y / 2.;
-    let w_size = hitbox.0.x / 2.;
-    let ow_size = other_hitbox.0.x / 2.;
-
-    offset.x + w_size > other_offset.x - ow_size && offset.x - w_size < other_offset.x + ow_size &&
-    offset.y + h_size > other_offset.y - oh_size && offset.y - h_size < other_offset.y + oh_size
-}
-
-#[derive(Component)]
-struct Trigger;
 
 #[derive(Component)]
 struct Collectable;
 
 fn get_collectable(
-    player: Query<(&Transform, &HitBox), With<Player>>,
-    mut triggers: Query<(&mut Transform, &HitBox), (With<Collectable>, Without<Player>)>,
+    player: Query<Entity, With<Player>>,
+    mut collectables: Query<&mut Transform, With<Collectable>>,
+    rapier_context: Res<RapierContext>,
 ) {
-    let (p_transform, &p_hitbox) = player.single();
-    for (mut t_transform, &t_hitbox) in &mut triggers {
-        if check_hit(p_hitbox, p_transform.translation, t_hitbox, t_transform.translation) {
-            t_transform.translation.x = rand::thread_rng().gen_range(-100.0..100.);
-            t_transform.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+        let entity = player.single();
+    
+        /* Iterate through all the intersection pairs involving a specific collider. */
+        for (collider1, collider2, intersecting) in rapier_context.intersections_with(entity) {
+            if intersecting {
+                println!("The entities {:?} and {:?} have intersecting colliders!", collider1, collider2);
+                if let Ok(mut pos) = collectables.get_mut(collider2) {
+                    pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
+                    pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+                }
+                if let Ok(mut pos) = collectables.get_mut(collider1) {
+                    pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
+                    pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+                }
+            }
         }
     }
-}
 
 #[derive(Resource)]
 struct TerrainSprites(Handle<TextureAtlas>);

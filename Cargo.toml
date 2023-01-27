@@ -9,6 +9,7 @@ edition = "2021"
 bevy = "0.9"
 bevy_editor_pls = {git = "https://github.com/jakobhellermann/bevy_editor_pls"}
 rand = "0.8"
+leafwing-input-manager = "0.8.0"
 
 [profile.dev.package."*"]
 opt-level = 3

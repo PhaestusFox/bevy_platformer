@@ -1,9 +1,13 @@
 use bevy::prelude::*;
 use rand::Rng;
+use leafwing_input_manager::prelude::*;
+
 
 mod animation;
+mod user_input;
 
 use animation::*;
+use user_input::*;
 
 fn main() {
     App::new()
@@ -20,6 +24,7 @@ fn main() {
     .add_system(get_collectable)
     .init_resource::<TerrainSprites>()
     .register_type::<TextureAtlasSprite>()
+    .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
     .run()
 }
 
@@ -116,6 +121,10 @@ fn spawn_player(
     },
     Grounded(true),
     HitBox(Vec2::new(18., 32.)),
+    InputManagerBundle {
+        input_map: PlayerInput::player_one(),
+        ..Default::default()
+    }
     ));
 }
 
@@ -123,18 +132,17 @@ const MOVE_SPEED: f32 = 100.;
 
 fn move_player(
     mut commands: Commands,
-    mut player: Query<(Entity, &mut Transform, &Grounded, &HitBox), With<Player>>,
+    mut player: Query<(Entity, &mut Transform, &Grounded, &HitBox, &ActionState<PlayerInput>), With<Player>>,
     hitboxs: Query<(&HitBox, &Transform), (Without<Player>, Without<Trigger>)>,
     time: Res<Time>,
-    input: Res<Input<KeyCode>>,
 ) {
-    let (entity, mut p_offset, grounded, &p_hitbox) = player.single_mut();
-    let delat = if input.any_just_pressed([KeyCode::W, KeyCode::Up, KeyCode::Space]) && grounded.0 {
+    let (entity, mut p_offset, grounded, &p_hitbox, input) = player.single_mut();
+    let delat = if input.just_pressed(PlayerInput::Jump) && grounded.0 {
         commands.entity(entity).insert(Jump(100.));
         return;
-    } else if input.any_pressed([KeyCode::A, KeyCode::Left]) {
+    } else if input.pressed(PlayerInput::Left) {
         -MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
-    } else if input.any_pressed([KeyCode::D, KeyCode::Right]) {
+    } else if input.pressed(PlayerInput::Right) {
         MOVE_SPEED * time.delta_seconds() * (0.5 + (grounded.0 as u16) as f32)
     } else {
         return;
@@ -153,14 +161,13 @@ const FALL_SPEED: f32 = 98.0;
 
 fn player_jump(
     mut commands: Commands,
-    mut player: Query<(Entity, &mut Transform, &mut Jump), With<Player>>,
-    input: Res<Input<KeyCode>>,
+    mut player: Query<(Entity, &mut Transform, &mut Jump, &ActionState<PlayerInput>), With<Player>>,
     time: Res<Time>,
 ) {
-    let Ok((player, mut transform,mut jump)) = player.get_single_mut() else {return;};
+    let Ok((player, mut transform,mut jump, input)) = player.get_single_mut() else {return;};
     let jump_power = (time.delta_seconds() * FALL_SPEED * 2.).min(jump.0);
     transform.translation.y += jump_power;
-    jump.0 -= if input.any_pressed([KeyCode::W, KeyCode::Up, KeyCode::Space]) {jump_power} else {jump_power * 2.};
+    jump.0 -= if input.pressed(PlayerInput::Jump) {jump_power} else {jump_power * 2.};
     if jump.0 <= 0. {
         commands.entity(player).remove::<Jump>();
     }

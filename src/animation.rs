@@ -117,21 +117,19 @@ pub enum Animation {
 }
 
 fn change_player_animation(
-    mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite), With<Player>>,
+    mut player: Query<(&mut Handle<TextureAtlas>, &mut SpriteAnimation, &mut TextureAtlasSprite, &ActionState<PlayerInput>), With<Player>>,
     player_jump: Query<(Option<&Jump>, &Grounded), With<Player>>,
-    input: Res<Input<KeyCode>>,
     animaitons: Res<Animations>,
 ) {
-    let (mut atlas, mut animation, mut sprite) = player.single_mut();
+    let (mut atlas, mut animation, mut sprite, input) = player.single_mut();
     let (jump, grounded) = player_jump.single();
-    if input.any_just_pressed([KeyCode::A, KeyCode::Left]) {
+    if input.just_pressed(PlayerInput::Left) {
         sprite.flip_x = true;
-    } else if input.any_just_pressed([KeyCode::D, KeyCode::Right])
-    && !input.any_pressed([KeyCode::A, KeyCode::Left]) {
+    } else if input.just_pressed(PlayerInput::Right)
+    && !input.pressed(PlayerInput::Left) {
         sprite.flip_x = false;
-    } else if input.any_just_released([KeyCode::A, KeyCode::Left])
-    && !input.any_pressed([KeyCode::A, KeyCode::Left])
-    && input.any_pressed([KeyCode::D, KeyCode::Right]) {
+    } else if input.just_released(PlayerInput::Left)
+    && input.pressed(PlayerInput::Right) {
         sprite.flip_x = false;
     }
     
@@ -143,7 +141,7 @@ fn change_player_animation(
     } else if !grounded.0 {
         Animation::PlayerFall
     // if any move keys pressed set run sprite
-    } else if input.any_pressed([KeyCode::A, KeyCode::Left, KeyCode::D, KeyCode::Right]) {
+    } else if input.pressed(PlayerInput::Left) || input.pressed(PlayerInput::Right) {
         Animation::PlayerRun
     } else {
         Animation::PlayerIdle

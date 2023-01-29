@@ -178,16 +178,23 @@ fn auto_step(
 ) {
     for (mut offset, state, grounded) in &mut query {
         if state.pressed(PlayerInput::Left) {
-            let ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
-            if let Some((_, dis)) = ray {
-                if grounded.0 {
+            let step = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            if let Some((_, dis)) = step {
+                let l_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                let r_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                if let Some((bonk, at)) = l_ray {
+                    println!("bonked ({:?} < {})", bonk, at)
+                }
+                if grounded.0 && l_ray.is_none() && r_ray.is_none() {
                     offset.translation.y += 16.1 - dis;
                 }
             }
         } else if state.pressed(PlayerInput::Right) {
-            let ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
-            if let Some((_, dis)) = ray {
-                if grounded.0 {
+            let step = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            if let Some((_, dis)) = step {
+                let r_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                let l_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                if grounded.0 && l_ray.is_none() && r_ray.is_none() {
                     offset.translation.y += 16.1 - dis;
                 }
             }

@@ -27,6 +27,7 @@ fn main() {
     .register_type::<TextureAtlasSprite>()
     .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
     .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
+    .add_plugin(RapierDebugRenderPlugin::default())
     .add_plugin(InspectableRapierPlugin)
     .register_type::<Grounded>()
     .register_type::<Jump>()
@@ -143,6 +144,10 @@ fn spawn_player(
     Velocity::default(),
     Collider::cuboid(9., 16.),
     LockedAxes::ROTATION_LOCKED_Z,
+    Friction{
+        coefficient: 5.,
+        combine_rule: CoefficientCombineRule::Multiply,
+    },
     Name::new("Player"),
     ));
 }
@@ -150,21 +155,28 @@ fn spawn_player(
 const MOVE_SPEED: f32 = 100.;
 
 fn move_player(
-    mut player: Query<(&mut Velocity, &ActionState<PlayerInput>, &Grounded), With<Player>>,
+    mut player: Query<(&mut Velocity, &ActionState<PlayerInput>, &Grounded, &Transform), With<Player>>,
+    rapier_context: Res<RapierContext>,
 ) {
-    let (mut velocity, input, grounded) = player.single_mut();
-    if input.just_pressed(PlayerInput::Jump) && grounded.0 {
+    let (mut velocity, input, grounded, pos) = player.single_mut();
+    if input.just_pressed(PlayerInput::Jump) & grounded {
         velocity.linvel.y = 100.;
     } else if input.just_pressed(PlayerInput::Fall) {
         velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
-        velocity.linvel.x = -MOVE_SPEED;
+        let hit = rapier_context.cast_ray(pos.translation.truncate() + Vec2::new(-10., 16.), Vec2::NEG_Y, 31.9, false, QueryFilter::exclude_dynamic().exclude_sensors());
+        if hit.is_none() {
+            velocity.linvel.x = -MOVE_SPEED;
+        }
     } else if input.pressed(PlayerInput::Right) {
-        velocity.linvel.x = MOVE_SPEED;
-    } else if input.just_released(PlayerInput::Left) {
-        velocity.linvel.x = 0.0;
-    } else if input.just_released(PlayerInput::Right) {
-        velocity.linvel.x = 0.0;
+        let hit = rapier_context.cast_ray(pos.translation.truncate() + Vec2::new(10., 16.), Vec2::NEG_Y, 31.9, false, QueryFilter::exclude_dynamic().exclude_sensors());
+        if let Some(hit) = hit {
+            info!("Player hit {:?}", hit.0);
+            //velocity.linvel.x = 0.0
+        }
+        if hit.is_none() {
+            velocity.linvel.x = MOVE_SPEED;
+        }
     };
 }
 
@@ -222,7 +234,7 @@ fn ground_detection(
 ) {
     let (pos,mut on_ground) = player.single_mut();
 
-    if (pos.translation.y * 100.).round() == last.0 {
+    if (pos.translation.y * 1000.).round() == last.0 {
         last.1 += 1;
     } else {
         last.1 -= 1;
@@ -235,7 +247,7 @@ fn ground_detection(
         on_ground.0 = false;
     }
 
-    last.0 = (pos.translation.y * 100.).round();
+    last.0 = (pos.translation.y * 1000.).round();
 }
 
 #[derive(Component)]
@@ -290,4 +302,18 @@ enum TerrainType {
     GoldLeftEnd = 193,
     GoldStright = 194,
     GoldRightEnd = 195,
+}
+
+impl std::ops::BitAnd<bool> for Grounded {
+    type Output = bool;
+    fn bitand(self, rhs: bool) -> Self::Output {
+        self.0 & rhs
+    }
+}
+
+impl std::ops::BitAnd<&Grounded> for bool {
+    type Output = bool;
+    fn bitand(self, rhs: &Grounded) -> Self::Output {
+        self & rhs.0
+    }
 }

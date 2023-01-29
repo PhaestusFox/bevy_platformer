@@ -187,21 +187,24 @@ struct Grounded(bool);
 
 fn ground_detection(
     mut player: Query<(&Transform, &mut Grounded), With<Player>>,
-    mut last: Local<f32>,
+    mut last: Local<(f32, isize)>,
 ) {
     let (pos,mut on_ground) = player.single_mut();
 
-    let current = if (pos.translation.y * 100.).round() == *last {
-        true
+    if (pos.translation.y * 100.).round() == last.0 {
+        last.1 += 1;
     } else {
-        false
+        last.1 -= 1;
     };
+    last.1 = last.1.clamp(0, 3);
 
-    if current != on_ground.0 {
-        on_ground.0 = current;
+    if last.1 == 3 && !on_ground.0 {
+        on_ground.0 = true;
+    } else if last.1 == 0 && on_ground.0 {
+        on_ground.0 = false;
     }
 
-    *last = (pos.translation.y * 100.).round();
+    last.0 = (pos.translation.y * 100.).round();
 }
 
 #[derive(Component)]

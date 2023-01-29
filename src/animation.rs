@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use super::*;
+use super::player::*;
 
 pub struct PhoxAnimationPlugin;
 
@@ -32,8 +33,17 @@ pub struct FrameTime(pub f32);
 
 #[derive(Bundle)]
 pub struct PhoxAnimationBundle {
-    pub animation: SpriteAnimation,
-    pub frame_time: FrameTime,
+    pub animaiton: SpriteAnimation,
+    frame_time: FrameTime,
+}
+
+impl PhoxAnimationBundle {
+    pub fn new(animaiton: SpriteAnimation) -> PhoxAnimationBundle {
+        PhoxAnimationBundle {
+            animaiton,
+            frame_time: FrameTime(0.0),
+        }
+    }
 }
 
 fn animate_sprite(

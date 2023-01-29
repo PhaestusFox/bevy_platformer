@@ -14,6 +14,7 @@ impl Plugin for PlayerPlugin {
         .add_system(ground_detection)
         .add_system(dubble_jump.before(move_player))
         .add_system(change_player)
+        .add_system(auto_step.before(move_player))
         .register_type::<Grounded>()
         .register_type::<Jump>()
         .register_type::<Player>();
@@ -140,20 +141,20 @@ fn ground_detection(
 ) {
     let (pos,mut on_ground) = player.single_mut();
 
-    if (pos.translation.y * 1000.).round() == last.0 {
+    if (pos.translation.y * 100.).round() == last.0 {
         last.1 += 1;
     } else {
         last.1 -= 1;
     };
-    last.1 = last.1.clamp(0, 3);
+    last.1 = last.1.clamp(0, 5);
 
-    if last.1 == 3 && !on_ground.0 {
+    if last.1 == 5 && !on_ground.0 {
         on_ground.0 = true;
-    } else if last.1 == 0 && on_ground.0 {
+    } else if last.1 < 2 && on_ground.0 {
         on_ground.0 = false;
     }
 
-    last.0 = (pos.translation.y * 1000.).round();
+    last.0 = (pos.translation.y * 100.).round();
 }
 
 
@@ -171,3 +172,25 @@ impl std::ops::BitAnd<&Grounded> for bool {
     }
 }
 
+fn auto_step(
+    mut query: Query<(&mut Transform, &ActionState<PlayerInput>, &Grounded), With<Player>>,
+    rapier_context: Res<RapierContext>,
+) {
+    for (mut offset, state, grounded) in &mut query {
+        if state.pressed(PlayerInput::Left) {
+            let ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            if let Some((_, dis)) = ray {
+                if grounded.0 {
+                    offset.translation.y += 16.1 - dis;
+                }
+            }
+        } else if state.pressed(PlayerInput::Right) {
+            let ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            if let Some((_, dis)) = ray {
+                if grounded.0 {
+                    offset.translation.y += 16.1 - dis;
+                }
+            }
+        }
+    }
+}

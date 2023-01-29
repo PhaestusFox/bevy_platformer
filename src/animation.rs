@@ -128,9 +128,9 @@ fn change_player_animation(
     animaitons: Res<Animations>,
 ) {
     let (mut atlas, mut animation, mut sprite, jump, velocity) = player.single_mut();
-    if velocity.linvel.x < 0. {
+    if velocity.linvel.x < -0.1 {
         sprite.flip_x = true;
-    } else if velocity.linvel.x > 0.0 {
+    } else if velocity.linvel.x > 0.1 {
         sprite.flip_x = false;
     }
     

@@ -22,6 +22,7 @@ fn main() {
     .add_startup_system(spawn_map)
     .add_system(get_collectable)
     .add_system(dubble_jump.before(move_player))
+    .add_system(change_player)
     .init_resource::<TerrainSprites>()
     .register_type::<TextureAtlasSprite>()
     .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
@@ -29,6 +30,7 @@ fn main() {
     .add_plugin(InspectableRapierPlugin)
     .register_type::<Grounded>()
     .register_type::<Jump>()
+    .register_type::<Player>()
     .run()
 }
 
@@ -108,19 +110,25 @@ fn spawn_map(
     }
 }
 
-#[derive(Component)]
-struct Player;
+#[derive(Component, Reflect, PartialEq)]
+enum Player {
+    Mask,
+    Ninja,
+    Pink,
+    Guy,
+}
 
 fn spawn_player(
     mut commands: Commands,
     animations: Res<Animations>,
 ) {
-    let Some((texture_atlas, animation)) = animations.get(Animation::PlayerIdle) else {error!("Failed to find animation: Idle"); return;};
+    let Some((texture_atlas, animation)) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
     commands.spawn((SpriteSheetBundle {
         texture_atlas,
         sprite: TextureAtlasSprite {index: 0, ..Default::default()},
         ..Default::default()
-    }, Player,
+    },
+    Player::Mask,
     PhoxAnimationBundle{
         animation,
         frame_time: FrameTime(0.),
@@ -135,6 +143,7 @@ fn spawn_player(
     Velocity::default(),
     Collider::cuboid(9., 16.),
     LockedAxes::ROTATION_LOCKED_Z,
+    Name::new("Player"),
     ));
 }
 
@@ -175,6 +184,28 @@ fn dubble_jump(
         if input.just_pressed(PlayerInput::Jump) && jump.0 {
             jump.0 = false;
             velocity.linvel.y = 100.;
+        }
+    }
+}
+
+fn change_player(
+    mut query: Query<(&mut Player, &ActionState<PlayerInput>)>
+) {
+    for (mut player, state) in &mut query {
+        if state.just_pressed(PlayerInput::NextPlayer) {
+            *player = match *player {
+                Player::Mask => Player::Ninja,
+                Player::Ninja => Player::Pink,
+                Player::Pink => Player::Guy,
+                Player::Guy => Player::Mask,
+            };
+        } else if state.just_pressed(PlayerInput::PevPlayer) {
+            *player = match *player {
+                Player::Mask => Player::Ninja,
+                Player::Ninja => Player::Pink,
+                Player::Pink => Player::Guy,
+                Player::Guy => Player::Mask,
+            };
         }
     }
 }

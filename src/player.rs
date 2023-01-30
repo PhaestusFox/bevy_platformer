@@ -55,11 +55,15 @@ fn spawn_player(
         coefficient: 5.,
         combine_rule: CoefficientCombineRule::Multiply,
     },
+    Damping{
+        linear_damping: 1.,
+        angular_damping: 1.,
+    },
     Name::new("Player"),
     ));
 }
 
-const MOVE_SPEED: f32 = 100.;
+const MOVE_SPEED: f32 = 200.;
 
 fn move_player(
     mut player: Query<(&mut Velocity, &ActionState<PlayerInput>, &Grounded, &Transform), With<Player>>,
@@ -67,7 +71,7 @@ fn move_player(
 ) {
     let (mut velocity, input, grounded, pos) = player.single_mut();
     if input.just_pressed(PlayerInput::Jump) & grounded {
-        velocity.linvel.y = 100.;
+        velocity.linvel.y = 500.;
     } else if input.just_pressed(PlayerInput::Fall) {
         velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
@@ -77,10 +81,6 @@ fn move_player(
         }
     } else if input.pressed(PlayerInput::Right) {
         let hit = rapier_context.cast_ray(pos.translation.truncate() + Vec2::new(10., 16.), Vec2::NEG_Y, 31.9, false, QueryFilter::exclude_dynamic().exclude_sensors());
-        if let Some(hit) = hit {
-            info!("Player hit {:?}", hit.0);
-            //velocity.linvel.x = 0.0
-        }
         if hit.is_none() {
             velocity.linvel.x = MOVE_SPEED;
         }
@@ -102,7 +102,7 @@ fn dubble_jump(
         if velocity.linvel.y.abs() < 0.01 {return;}
         if input.just_pressed(PlayerInput::Jump) && jump.0 {
             jump.0 = false;
-            velocity.linvel.y = 100.;
+            velocity.linvel.y = 500.;
         }
     }
 }

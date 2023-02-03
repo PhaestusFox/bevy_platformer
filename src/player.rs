@@ -1,23 +1,27 @@
-use bevy::prelude::*;
 use crate::animation::{Animation, Animations, PhoxAnimationBundle};
 use crate::user_input::PlayerInput;
-use leafwing_input_manager::prelude::*;
+use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+use leafwing_input_manager::prelude::*;
+
+#[derive(SystemLabel)]
+pub enum PlayerStages {
+    Move,
+}
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .add_startup_system(spawn_player)
-        .add_system(move_player)
-        .add_system(ground_detection)
-        .add_system(dubble_jump.before(move_player))
-        .add_system(change_player)
-        .add_system(auto_step.before(move_player))
-        .register_type::<Grounded>()
-        .register_type::<Jump>()
-        .register_type::<Player>();
+        app.add_startup_system(spawn_player)
+            .add_system(move_player.label(PlayerStages::Move))
+            .add_system(ground_detection)
+            .add_system(dubble_jump.label(PlayerStages::Move).before(move_player))
+            .add_system(change_player.label(PlayerStages::Move))
+            .add_system(auto_step.label(PlayerStages::Move).before(move_player))
+            .register_type::<Grounded>()
+            .register_type::<Jump>()
+            .register_type::<Player>();
     }
 }
 
@@ -29,66 +33,98 @@ pub enum Player {
     Guy,
 }
 
-fn spawn_player(
-    mut commands: Commands,
-    animations: Res<Animations>,
-) {
+#[derive(Component)]
+pub struct RealPlayer;
+
+fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
     let Some((texture_atlas, animation)) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
-    commands.spawn((SpriteSheetBundle {
-        texture_atlas,
-        sprite: TextureAtlasSprite {index: 0, ..Default::default()},
-        ..Default::default()
-    },
-    Player::Mask,
-    PhoxAnimationBundle::new(animation),
-    Grounded(true),
-    InputManagerBundle {
-        input_map: PlayerInput::player_one(),
-        ..Default::default()
-    },
-    Jump(false),
-    RigidBody::Dynamic,
-    Velocity::default(),
-    Collider::cuboid(9., 16.),
-    LockedAxes::ROTATION_LOCKED_Z,
-    Friction{
-        coefficient: 5.,
-        combine_rule: CoefficientCombineRule::Multiply,
-    },
-    Damping{
-        linear_damping: 1.,
-        angular_damping: 1.,
-    },
-    Name::new("Player"),
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas,
+            sprite: TextureAtlasSprite {
+                index: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        Player::Mask,
+        RealPlayer,
+        PhoxAnimationBundle::new(animation),
+        Grounded(true),
+        GroundedCheck(0.0, 0),
+        InputManagerBundle {
+            input_map: PlayerInput::player_one(),
+            ..Default::default()
+        },
+        Jump(false),
+        RigidBody::Dynamic,
+        Velocity::default(),
+        Collider::cuboid(9., 16.),
+        LockedAxes::ROTATION_LOCKED_Z,
+        Friction {
+            coefficient: 5.,
+            combine_rule: CoefficientCombineRule::Multiply,
+        },
+        Damping {
+            linear_damping: 1.,
+            angular_damping: 1.,
+        },
+        Name::new("Player"),
     ));
 }
 
-const MOVE_SPEED: f32 = 200.;
+pub const MOVE_SPEED: f32 = 200.;
 
 fn move_player(
-    mut player: Query<(&mut Velocity, &ActionState<PlayerInput>, &Grounded, &Transform), With<Player>>,
+    mut player: Query<
+        (
+            &mut Velocity,
+            &ActionState<PlayerInput>,
+            &Grounded,
+            &Transform,
+            &Name,
+        )
+    >,
     rapier_context: Res<RapierContext>,
 ) {
-    let (mut velocity, input, grounded, pos) = player.single_mut();
+    for (mut velocity, input, grounded, pos, name) in  &mut player {
+        if input.just_pressed(PlayerInput::Jump) {
+            println!("Jump {}", name);
+        }
+
     if input.just_pressed(PlayerInput::Jump) & grounded {
         velocity.linvel.y = 250.;
+        println!("Jump {}", name);
     } else if input.just_pressed(PlayerInput::Fall) {
         velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
-        let hit = rapier_context.cast_ray(pos.translation.truncate() + Vec2::new(-10., 16.), Vec2::NEG_Y, 31.9, false, QueryFilter::exclude_dynamic().exclude_sensors());
+        let hit = rapier_context.cast_ray(
+            pos.translation.truncate() + Vec2::new(-10., 16.),
+            Vec2::NEG_Y,
+            31.9,
+            false,
+            QueryFilter::exclude_dynamic().exclude_sensors(),
+        );
         if hit.is_none() {
             velocity.linvel.x = -MOVE_SPEED;
         }
     } else if input.pressed(PlayerInput::Right) {
-        let hit = rapier_context.cast_ray(pos.translation.truncate() + Vec2::new(10., 16.), Vec2::NEG_Y, 31.9, false, QueryFilter::exclude_dynamic().exclude_sensors());
+        let hit = rapier_context.cast_ray(
+            pos.translation.truncate() + Vec2::new(10., 16.),
+            Vec2::NEG_Y,
+            31.9,
+            false,
+            QueryFilter::exclude_dynamic().exclude_sensors(),
+        );
         if hit.is_none() {
             velocity.linvel.x = MOVE_SPEED;
         }
     };
+    }
 }
 
 fn dubble_jump(
-    mut player: Query<(&mut Jump, &mut Velocity, &ActionState<PlayerInput>), With<Player>>,
+    mut player: Query<(&mut Jump, &mut Velocity, &ActionState<PlayerInput>)>,
     can_jump: Query<(Entity, &Grounded), Changed<Grounded>>,
 ) {
     for (entity, grounded) in &can_jump {
@@ -99,7 +135,9 @@ fn dubble_jump(
         }
     }
     for (mut jump, mut velocity, input) in player.iter_mut() {
-        if velocity.linvel.y.abs() < 0.01 {return;}
+        if velocity.linvel.y.abs() < 0.01 {
+            return;
+        }
         if input.just_pressed(PlayerInput::Jump) && jump.0 {
             jump.0 = false;
             velocity.linvel.y = 250.;
@@ -107,9 +145,7 @@ fn dubble_jump(
     }
 }
 
-fn change_player(
-    mut query: Query<(&mut Player, &ActionState<PlayerInput>)>
-) {
+fn change_player(mut query: Query<(&mut Player, &ActionState<PlayerInput>)>) {
     for (mut player, state) in &mut query {
         if state.just_pressed(PlayerInput::NextPlayer) {
             *player = match *player {
@@ -133,30 +169,30 @@ fn change_player(
 pub struct Jump(pub bool);
 
 #[derive(Component, Reflect)]
-pub struct Grounded(bool);
+pub struct Grounded(pub bool);
+#[derive(Component, Default)]
+pub struct GroundedCheck(f32, isize);
 
 fn ground_detection(
-    mut player: Query<(&Transform, &mut Grounded), With<Player>>,
-    mut last: Local<(f32, isize)>,
+    mut player: Query<(&Transform, &mut Grounded, &mut GroundedCheck)>,
 ) {
-    let (pos,mut on_ground) = player.single_mut();
+    for (pos, mut on_ground, mut last) in &mut player {
+        if (pos.translation.y * 100.).round() == last.0 {
+            last.1 += 1;
+        } else {
+            last.1 -= 1;
+        };
+        last.1 = last.1.clamp(0, 5);
 
-    if (pos.translation.y * 100.).round() == last.0 {
-        last.1 += 1;
-    } else {
-        last.1 -= 1;
-    };
-    last.1 = last.1.clamp(0, 5);
+        if last.1 == 5 && !on_ground.0 {
+            on_ground.0 = true;
+        } else if last.1 < 2 && on_ground.0 {
+            on_ground.0 = false;
+        }
 
-    if last.1 == 5 && !on_ground.0 {
-        on_ground.0 = true;
-    } else if last.1 < 2 && on_ground.0 {
-        on_ground.0 = false;
+        last.0 = (pos.translation.y * 100.).round();
     }
-
-    last.0 = (pos.translation.y * 100.).round();
 }
-
 
 impl std::ops::BitAnd<bool> for Grounded {
     type Output = bool;
@@ -173,15 +209,33 @@ impl std::ops::BitAnd<&Grounded> for bool {
 }
 
 fn auto_step(
-    mut query: Query<(&mut Transform, &ActionState<PlayerInput>, &Grounded), With<Player>>,
+    mut query: Query<(&mut Transform, &ActionState<PlayerInput>, &Grounded)>,
     rapier_context: Res<RapierContext>,
 ) {
     for (mut offset, state, grounded) in &mut query {
         if state.pressed(PlayerInput::Left) {
-            let step = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            let step = rapier_context.cast_ray(
+                offset.translation.truncate() + Vec2::new(-10., 0.01),
+                Vec2::NEG_Y,
+                15.9,
+                true,
+                QueryFilter::exclude_dynamic().exclude_sensors(),
+            );
             if let Some((_, dis)) = step {
-                let l_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
-                let r_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                let l_ray = rapier_context.cast_ray(
+                    offset.translation.truncate() + Vec2::new(-10., 7.99),
+                    Vec2::Y,
+                    32.,
+                    true,
+                    QueryFilter::exclude_dynamic().exclude_sensors(),
+                );
+                let r_ray = rapier_context.cast_ray(
+                    offset.translation.truncate() + Vec2::new(10., 7.99),
+                    Vec2::Y,
+                    32.,
+                    true,
+                    QueryFilter::exclude_dynamic().exclude_sensors(),
+                );
                 if let Some((bonk, at)) = l_ray {
                     println!("bonked ({:?} < {})", bonk, at)
                 }
@@ -190,10 +244,28 @@ fn auto_step(
                 }
             }
         } else if state.pressed(PlayerInput::Right) {
-            let step = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 0.01), Vec2::NEG_Y, 15.9, true, QueryFilter::exclude_dynamic().exclude_sensors());
+            let step = rapier_context.cast_ray(
+                offset.translation.truncate() + Vec2::new(10., 0.01),
+                Vec2::NEG_Y,
+                15.9,
+                true,
+                QueryFilter::exclude_dynamic().exclude_sensors(),
+            );
             if let Some((_, dis)) = step {
-                let r_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
-                let l_ray = rapier_context.cast_ray(offset.translation.truncate() + Vec2::new(-10., 7.99), Vec2::Y, 32., true, QueryFilter::exclude_dynamic().exclude_sensors());
+                let r_ray = rapier_context.cast_ray(
+                    offset.translation.truncate() + Vec2::new(10., 7.99),
+                    Vec2::Y,
+                    32.,
+                    true,
+                    QueryFilter::exclude_dynamic().exclude_sensors(),
+                );
+                let l_ray = rapier_context.cast_ray(
+                    offset.translation.truncate() + Vec2::new(-10., 7.99),
+                    Vec2::Y,
+                    32.,
+                    true,
+                    QueryFilter::exclude_dynamic().exclude_sensors(),
+                );
                 if grounded.0 && l_ray.is_none() && r_ray.is_none() {
                     offset.translation.y += 16.1 - dis;
                 }

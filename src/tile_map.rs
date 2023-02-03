@@ -7,11 +7,10 @@ pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .init_resource::<TerrainSprites>()
-        .add_event::<MapEvent>()
-        .add_system(spawn_map_objects)
-        .init_resource::<MapData>();
+        app.init_resource::<TerrainSprites>()
+            .add_event::<MapEvent>()
+            .add_system(spawn_map_objects)
+            .init_resource::<MapData>();
     }
 }
 
@@ -34,7 +33,14 @@ impl TerrainSprites {
 impl FromWorld for TerrainSprites {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let texture_atles = TextureAtlas::from_grid(asset_server.load("Terrain/Terrain (16x16).png"), Vec2::splat(16.), 22, 11, None, None);
+        let texture_atles = TextureAtlas::from_grid(
+            asset_server.load("Terrain/Terrain (16x16).png"),
+            Vec2::splat(16.),
+            22,
+            11,
+            None,
+            None,
+        );
         let mut assets = world.resource_mut::<Assets<TextureAtlas>>();
         TerrainSprites::new(assets.add(texture_atles))
     }
@@ -67,15 +73,13 @@ impl TerrainMaterial {
     fn to_sprite(self, terrain_type: TerrainType) -> usize {
         use TerrainMaterial::*;
         match self {
-            Gold | Clay | Copper | Iron | Brick => {
-                self as usize + terrain_type as usize
-            }
+            Gold | Clay | Copper | Iron | Brick => self as usize + terrain_type as usize,
         }
     }
 }
 
 pub trait MapObject: 'static + Send + Sync {
-    fn spawn(&self, terrain: &TerrainSprites,  commands: &mut Commands, map_data: &mut MapData);
+    fn spawn(&self, terrain: &TerrainSprites, commands: &mut Commands, map_data: &mut MapData);
 }
 
 pub struct MapBox {
@@ -85,14 +89,18 @@ pub struct MapBox {
     pub material: TerrainMaterial,
 }
 
-impl MapObject for MapBox{
+impl MapObject for MapBox {
     fn spawn(&self, terrain: &TerrainSprites, commands: &mut Commands, map_data: &mut MapData) {
         match (self.width, self.hight) {
             (1, 1) => {
                 let offset_x = self.offset.x * 16;
                 let offset_y = self.offset.y * 16;
-                commands.spawn(CellBundle{
-                    transform: Transform::from_translation(Vec3::new(offset_x as f32, offset_y as f32, self.offset.z as f32)),
+                commands.spawn(CellBundle {
+                    transform: Transform::from_translation(Vec3::new(
+                        offset_x as f32,
+                        offset_y as f32,
+                        self.offset.z as f32,
+                    )),
                     collider: Collider::cuboid(8., 8.),
                     rigid_body: RigidBody::Fixed,
                     sprite: TextureAtlasSprite {
@@ -102,145 +110,175 @@ impl MapObject for MapBox{
                     texture_atlas: terrain.get_atlas(),
                     ..Default::default()
                 });
-            },
+            }
             (1, size_y) => {
                 let offset_x = self.offset.x as f32 * 16.;
-                let offset_y = (self.offset.y as f32 + (size_y as f32 / 2.)) * 16. - (size_y % 2 * 8) as f32;
-                commands.spawn((
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(offset_x, offset_y, self.offset.z as f32)),
-                        ..Default::default()
-                    },
-                    Collider::cuboid(8., size_y as f32 * 8.),
-                    RigidBody::Fixed
-                )).with_children(|p| {
-                    let range = if size_y % 2 == 1 {
-                        -size_y/2..=size_y/2
-                    } else {
-                        (-size_y/2 + 1)..=size_y/2
-                    };
-                    for (i, y) in range.enumerate() {
-                        map_data.set_full(IVec2::new(self.offset.x, self.offset.y + y));
-                        p.spawn((
-                            SpatialBundle {
-                                transform: if size_y % 2 == 0 {Transform::from_translation(Vec3::Y * (y as f32 * 16. - 8.))} else {Transform::from_translation(Vec3::Y * (y as f32 * 16.))},
-                                ..Default::default()
-                            },
-                            TextureAtlasSprite {
-                                index: if i == 0 {
-                                    self.material.to_sprite(TerrainType::OneUp) as usize
-                                } else if i == self.hight as usize - 1 {
-                                    self.material.to_sprite(TerrainType::OneDown) as usize
-                                } else {
-                                    self.material.to_sprite(TerrainType::OneVertical) as usize
+                let offset_y =
+                    (self.offset.y as f32 + (size_y as f32 / 2.)) * 16. - (size_y % 2 * 8) as f32;
+                commands
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(Vec3::new(
+                                offset_x,
+                                offset_y,
+                                self.offset.z as f32,
+                            )),
+                            ..Default::default()
+                        },
+                        Collider::cuboid(8., size_y as f32 * 8.),
+                        RigidBody::Fixed,
+                    ))
+                    .with_children(|p| {
+                        let range = if size_y % 2 == 1 {
+                            -size_y / 2..=size_y / 2
+                        } else {
+                            (-size_y / 2 + 1)..=size_y / 2
+                        };
+                        for (i, y) in range.enumerate() {
+                            map_data.set_full(IVec2::new(self.offset.x, self.offset.y + y));
+                            p.spawn((
+                                SpatialBundle {
+                                    transform: if size_y % 2 == 0 {
+                                        Transform::from_translation(Vec3::Y * (y as f32 * 16. - 8.))
+                                    } else {
+                                        Transform::from_translation(Vec3::Y * (y as f32 * 16.))
+                                    },
+                                    ..Default::default()
                                 },
-                                ..Default::default()
-                            },
-                            terrain.get_atlas(),
-                        ));
-                    }
-                });
+                                TextureAtlasSprite {
+                                    index: if i == 0 {
+                                        self.material.to_sprite(TerrainType::OneUp) as usize
+                                    } else if i == self.hight as usize - 1 {
+                                        self.material.to_sprite(TerrainType::OneDown) as usize
+                                    } else {
+                                        self.material.to_sprite(TerrainType::OneVertical) as usize
+                                    },
+                                    ..Default::default()
+                                },
+                                terrain.get_atlas(),
+                            ));
+                        }
+                    });
             }
             (size_x, 1) => {
-                let offset_x = (self.offset.x as f32 + (size_x as f32 / 2.)) * 16. - (size_x % 2 * 8) as f32;
+                let offset_x =
+                    (self.offset.x as f32 + (size_x as f32 / 2.)) * 16. - (size_x % 2 * 8) as f32;
                 let offset_y = self.offset.y as f32 * 16.;
-                commands.spawn((
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(offset_x, offset_y, self.offset.z as f32)),
-                        ..Default::default()
-                    },
-                    Collider::cuboid(size_x as f32 * 8., 8.),
-                    RigidBody::Fixed
-                )).with_children(|p| {
-                    let range = if size_x % 2 == 1 {
-                        -size_x/2..=size_x/2
-                    } else {
-                        (-size_x/2 + 1)..=size_x/2
-                    };
-                    for (i, x) in range.enumerate() {
-                        map_data.set_full(IVec2::new(self.offset.x + x, self.offset.y));
-                        p.spawn((
-                            SpatialBundle {
-                                transform: if size_x % 2 == 0 {Transform::from_translation(Vec3::X * (x as f32 * 16. - 8.))} else {Transform::from_translation(Vec3::X * (x as f32 * 16.))},
-                                ..Default::default()
-                            },
-                            TextureAtlasSprite {
-                                index: if i == 0 {
-                                    self.material.to_sprite(TerrainType::OneLeft) as usize
-                                } else if i == self.width as usize - 1 {
-                                    self.material.to_sprite(TerrainType::OneRight) as usize
-                                } else {
-                                    self.material.to_sprite(TerrainType::OneHorizontal) as usize
+                commands
+                    .spawn((
+                        SpatialBundle {
+                            transform: Transform::from_translation(Vec3::new(
+                                offset_x,
+                                offset_y,
+                                self.offset.z as f32,
+                            )),
+                            ..Default::default()
+                        },
+                        Collider::cuboid(size_x as f32 * 8., 8.),
+                        RigidBody::Fixed,
+                    ))
+                    .with_children(|p| {
+                        let range = if size_x % 2 == 1 {
+                            -size_x / 2..=size_x / 2
+                        } else {
+                            (-size_x / 2 + 1)..=size_x / 2
+                        };
+                        for (i, x) in range.enumerate() {
+                            map_data.set_full(IVec2::new(self.offset.x + x, self.offset.y));
+                            p.spawn((
+                                SpatialBundle {
+                                    transform: if size_x % 2 == 0 {
+                                        Transform::from_translation(Vec3::X * (x as f32 * 16. - 8.))
+                                    } else {
+                                        Transform::from_translation(Vec3::X * (x as f32 * 16.))
+                                    },
+                                    ..Default::default()
                                 },
-                                ..Default::default()
-                            },
-                            terrain.get_atlas(),
-                        ));
-                    }
-                });
+                                TextureAtlasSprite {
+                                    index: if i == 0 {
+                                        self.material.to_sprite(TerrainType::OneLeft) as usize
+                                    } else if i == self.width as usize - 1 {
+                                        self.material.to_sprite(TerrainType::OneRight) as usize
+                                    } else {
+                                        self.material.to_sprite(TerrainType::OneHorizontal) as usize
+                                    },
+                                    ..Default::default()
+                                },
+                                terrain.get_atlas(),
+                            ));
+                        }
+                    });
             }
             (2, 2) => {
                 let offset_x = (self.offset.x + 1) as f32 * 16.;
-                let offset_y = (self.offset.y + 1)as f32 * 16.;
-                commands.spawn((
-                    SpatialBundle {
-                        transform: Transform::from_translation(Vec3::new(offset_x, offset_y, self.offset.z as f32)),
-                        ..Default::default()
-                    },
-                    Collider::cuboid(16., 16.),
-                    RigidBody::Fixed
-                )).add_children(|p| {
-                    map_data.set_full(IVec2::new(self.offset.x, self.offset.y));
-                    p.spawn((
+                let offset_y = (self.offset.y + 1) as f32 * 16.;
+                commands
+                    .spawn((
                         SpatialBundle {
-                            transform: Transform::from_translation(Vec3::new(-8., -8., 0.)),
+                            transform: Transform::from_translation(Vec3::new(
+                                offset_x,
+                                offset_y,
+                                self.offset.z as f32,
+                            )),
                             ..Default::default()
                         },
-                        TextureAtlasSprite {
-                            index: self.material.to_sprite(TerrainType::BottomLeft),
-                            ..Default::default()
-                        },
-                        terrain.get_atlas(),
-                    ));
-                    map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y));
-                    p.spawn((
-                        SpatialBundle {
-                            transform: Transform::from_translation(Vec3::new(8., -8., 0.)),
-                            ..Default::default()
-                        },
-                        TextureAtlasSprite {
-                            index: self.material.to_sprite(TerrainType::BottomRight),
-                            ..Default::default()
-                        },
-                        terrain.get_atlas(),
-                    ));
-                    map_data.set_full(IVec2::new(self.offset.x, self.offset.y + 1));
-                    p.spawn((
-                        SpatialBundle {
-                            transform: Transform::from_translation(Vec3::new(-8., 8., 0.)),
-                            ..Default::default()
-                        },
-                        TextureAtlasSprite {
-                            index: self.material.to_sprite(TerrainType::TopLeft),
-                            ..Default::default()
-                        },
-                        terrain.get_atlas(),
-                    ));
-                    map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y + 1));
-                    p.spawn((
-                        SpatialBundle {
-                            transform: Transform::from_translation(Vec3::new(8., 8., 0.)),
-                            ..Default::default()
-                        },
-                        TextureAtlasSprite {
-                            index: self.material.to_sprite(TerrainType::TopRight),
-                            ..Default::default()
-                        },
-                        terrain.get_atlas(),
-                    ));
-                });
-            },
-            (x, y) => {warn!("Spawning boxes of size ({},{}) is not implmeted", x, y);}
+                        Collider::cuboid(16., 16.),
+                        RigidBody::Fixed,
+                    ))
+                    .add_children(|p| {
+                        map_data.set_full(IVec2::new(self.offset.x, self.offset.y));
+                        p.spawn((
+                            SpatialBundle {
+                                transform: Transform::from_translation(Vec3::new(-8., -8., 0.)),
+                                ..Default::default()
+                            },
+                            TextureAtlasSprite {
+                                index: self.material.to_sprite(TerrainType::BottomLeft),
+                                ..Default::default()
+                            },
+                            terrain.get_atlas(),
+                        ));
+                        map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y));
+                        p.spawn((
+                            SpatialBundle {
+                                transform: Transform::from_translation(Vec3::new(8., -8., 0.)),
+                                ..Default::default()
+                            },
+                            TextureAtlasSprite {
+                                index: self.material.to_sprite(TerrainType::BottomRight),
+                                ..Default::default()
+                            },
+                            terrain.get_atlas(),
+                        ));
+                        map_data.set_full(IVec2::new(self.offset.x, self.offset.y + 1));
+                        p.spawn((
+                            SpatialBundle {
+                                transform: Transform::from_translation(Vec3::new(-8., 8., 0.)),
+                                ..Default::default()
+                            },
+                            TextureAtlasSprite {
+                                index: self.material.to_sprite(TerrainType::TopLeft),
+                                ..Default::default()
+                            },
+                            terrain.get_atlas(),
+                        ));
+                        map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y + 1));
+                        p.spawn((
+                            SpatialBundle {
+                                transform: Transform::from_translation(Vec3::new(8., 8., 0.)),
+                                ..Default::default()
+                            },
+                            TextureAtlasSprite {
+                                index: self.material.to_sprite(TerrainType::TopRight),
+                                ..Default::default()
+                            },
+                            terrain.get_atlas(),
+                        ));
+                    });
+            }
+            (x, y) => {
+                warn!("Spawning boxes of size ({},{}) is not implmeted", x, y);
+            }
         }
     }
 }
@@ -254,7 +292,7 @@ struct CellBundle {
     pub sprite: TextureAtlasSprite,
     pub texture_atlas: Handle<TextureAtlas>,
     pub collider: Collider,
-    pub rigid_body: RigidBody
+    pub rigid_body: RigidBody,
 }
 
 fn spawn_map_objects(
@@ -265,7 +303,9 @@ fn spawn_map_objects(
 ) {
     for event in events.iter() {
         match event {
-            MapEvent::Spawn(obj) => {obj.spawn(&terrain, &mut commands, &mut map_data);}
+            MapEvent::Spawn(obj) => {
+                obj.spawn(&terrain, &mut commands, &mut map_data);
+            }
         }
     }
 }

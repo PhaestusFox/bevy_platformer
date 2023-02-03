@@ -1,7 +1,6 @@
 use bevy::prelude::KeyCode;
 use leafwing_input_manager::prelude::*;
 
-
 #[derive(Debug, Actionlike, Clone)]
 pub enum PlayerInput {
     Left,
@@ -27,7 +26,7 @@ impl PlayerInput {
             (KeyCode::Down, PlayerInput::Fall),
             (KeyCode::Q, PlayerInput::PevPlayer),
             (KeyCode::E, PlayerInput::NextPlayer),
-            ]);
+        ]);
         map
     }
 }

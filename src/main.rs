@@ -78,7 +78,7 @@ fn spawn_map(
                 offset: IVec3 { x: i * 2, y: 15, z: 1 },
                 width: 1,
                 hight: 1,
-                material: TerrainMaterial::Gold,
+                material: TerrainMaterial::Brick,
             }
         )));
     }

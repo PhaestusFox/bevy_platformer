@@ -71,7 +71,7 @@ fn move_player(
 ) {
     let (mut velocity, input, grounded, pos) = player.single_mut();
     if input.just_pressed(PlayerInput::Jump) & grounded {
-        velocity.linvel.y = 500.;
+        velocity.linvel.y = 250.;
     } else if input.just_pressed(PlayerInput::Fall) {
         velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
@@ -102,7 +102,7 @@ fn dubble_jump(
         if velocity.linvel.y.abs() < 0.01 {return;}
         if input.just_pressed(PlayerInput::Jump) && jump.0 {
             jump.0 = false;
-            velocity.linvel.y = 500.;
+            velocity.linvel.y = 250.;
         }
     }
 }

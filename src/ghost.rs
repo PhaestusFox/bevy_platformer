@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use std::collections::HashMap;
 
 use bevy_rapier2d::prelude::*;
 use crate::{player::{Player, Grounded, Jump, RealPlayer, GroundedCheck, PlayerStages}, user_input::PlayerInput, animation::{Animations, PhoxAnimationBundle, Animation}};
@@ -14,7 +13,7 @@ impl Plugin for GhostPlugin {
             .init_resource::<SyncOffset>()
             .insert_resource(PlayerFrame(0))
             .add_system_to_stage(CoreStage::First, update_frame)
-            .add_system_to_stage(CoreStage::Last, save_player_inputs)
+            .add_system_to_stage(CoreStage::Last, save_player_state)
             .add_system_to_stage(CoreStage::Last, save_player_offset)
             .add_system(update_ghost.before(PlayerStages::Move))
             .add_system_to_stage(CoreStage::Last, drift_correct)
@@ -25,32 +24,32 @@ impl Plugin for GhostPlugin {
 #[derive(Component)]
 pub struct Ghost(usize);
 
-const SYNCFRAME: usize = 3;
+const SYNCFRAME: usize = 10;
 
 #[derive(Resource)]
 struct PlayerFrame(usize);
 
 #[derive(Resource, Default)]
-struct PlayerInputs(HashMap<usize, ActionState<PlayerInput>>);
+struct PlayerInputs(Vec<(Velocity, Jump, Player)>);
 
 impl PlayerInputs {
-    fn add_input(&mut self, frame: usize, state: ActionState<PlayerInput>) {
-        self.0.insert(frame, state);
+    fn add_input(&mut self, state: (Velocity, Jump, Player)) {
+        self.0.push(state);
     }
-    fn get_input(&self, frame: &usize) -> Option<&ActionState<PlayerInput>> {
+    fn get_input(&self, frame: usize) -> Option<&(Velocity, Jump, Player)> {
         self.0.get(frame)
     }
 }
 
 #[derive(Resource, Default)]
-struct SyncOffset(HashMap<usize, Vec3>);
+struct SyncOffset(Vec<Vec3>);
 
 impl SyncOffset {
-    fn add_offset(&mut self, frame: usize, state: Vec3) {
-        self.0.insert(frame, state);
+    fn add_offset(&mut self, state: Vec3) {
+        self.0.push(state);
     }
-    fn get_offset(&self, frame: &usize) -> Option<&Vec3> {
-        self.0.get(&frame)
+    fn get_offset(&self, frame: usize) -> Option<&Vec3> {
+        self.0.get(frame)
     }
 }
 
@@ -64,13 +63,12 @@ fn update_frame(
     frame.0 += 1;
 }
 
-fn save_player_inputs(
-    query: Query<&ActionState<PlayerInput>, With<RealPlayer>>,
-    frame: Res<PlayerFrame>,
+fn save_player_state(
+    query: Query<(&Velocity, &Jump, &Player), With<RealPlayer>>,
     mut inputs: ResMut<PlayerInputs>,
 ) {
     let player = query.single();
-    inputs.add_input(frame.0, player.clone());
+    inputs.add_input((player.0.clone(), *player.1, *player.2));
 }
 
 fn save_player_offset(
@@ -80,20 +78,23 @@ fn save_player_offset(
 ) {
     if frame.0 % SYNCFRAME == 0 {
         let player = query.single();
-        offsets.add_offset(frame.0, player.translation);
+        offsets.add_offset(player.translation);
     }
 }
 
 fn update_ghost(
-    mut ghosts: Query<(&mut ActionState<PlayerInput>, &Ghost)>,
+    mut ghosts: Query<(&mut Velocity, &mut Jump, &mut Player, &Ghost)>,
     inputs: Res<PlayerInputs>,
 ) {
-    for (mut map, Ghost(frame) ) in &mut ghosts {
-        if let Some(new_map) = inputs.get_input(frame) {
-            if new_map.just_pressed(PlayerInput::Jump) {
-                println!("Ghost jump");
-            }
-            *map = new_map.clone();
+    use std::mem::size_of;
+    for (mut v, mut j, mut p, &Ghost(frame) ) in &mut ghosts {
+        if frame % 600 == 0 {
+            println!("PlayerInputs = {}", inputs.0.len() * size_of::<(Velocity, Jump)>());
+        }
+        if let Some((new_v, new_j, new_p)) = inputs.get_input(frame) {
+            *v = new_v.clone();
+            *j = *new_j;
+            *p = *new_p;
         }
     }
 }
@@ -143,9 +144,13 @@ fn drift_correct(
     mut query: Query<(&Ghost, &mut Transform)>,
     offsets: Res<SyncOffset>,
 ) {
-    for (Ghost(frame), mut transform) in &mut query {
-        if frame % SYNCFRAME != 0 {continue;}
-        let Some(offset) = offsets.get_offset(frame) else {error!("No Sync for frame {}", frame); continue;};
+    use std::mem::size_of;
+    for (&Ghost(frame), mut transform) in &mut query {
+        if frame % 600 == 0 {
+            println!("offsets = {}", offsets.0.len() * size_of::<Vec3>());
+        }
+        if frame % SYNCFRAME != 0 || frame == 0 {continue;}
+        let Some(offset) = offsets.get_offset((frame - 1) / SYNCFRAME) else {error!("No Sync for frame {}", frame); continue;};
         transform.translation = *offset;
     }
 }

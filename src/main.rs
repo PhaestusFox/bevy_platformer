@@ -59,6 +59,12 @@ fn spawn_map(
         hight: 2,
         material: TerrainMaterial::Gold,
     })));
+    map_event.send(MapEvent::Spawn(Box::new(MapBox {
+        offset: IVec3 { x: 7, y: 1, z: 1 },
+        width: 1,
+        hight: 1,
+        material: TerrainMaterial::Clay,
+    })));
     for i in 0..5 {
         map_event.send(MapEvent::Spawn(Box::new(MapBox {
             offset: IVec3 {
@@ -93,10 +99,16 @@ fn spawn_map(
     })));
 
     map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -6, y: 11, z: 1 },
+        offset: IVec3 { x: -6, y: 9, z: 1 },
         width: 1,
         hight: 5,
         material: TerrainMaterial::Gold,
+    })));
+    map_event.send(MapEvent::Spawn(Box::new(MapBox {
+        offset: IVec3 { x: -6, y: 9, z: 1 },
+        width: 1,
+        hight: 1,
+        material: TerrainMaterial::Clay,
     })));
 
     map_event.send(MapEvent::Spawn(Box::new(MapBox {
@@ -104,6 +116,20 @@ fn spawn_map(
         width: 2,
         hight: 2,
         material: TerrainMaterial::Gold,
+    })));
+
+    map_event.send(MapEvent::Spawn(Box::new(MapBox {
+        offset: IVec3 { x: -2, y: 7, z: 1 },
+        width: 5,
+        hight: 1,
+        material: TerrainMaterial::Copper,
+    })));
+
+    map_event.send(MapEvent::Spawn(Box::new(MapBox {
+        offset: IVec3 { x: -2, y: 8, z: 1 },
+        width: 4,
+        hight: 1,
+        material: TerrainMaterial::Iron,
     })));
 
     if let Some((texture_atlas, animation)) = animations.get(Animation::Strawberry) {

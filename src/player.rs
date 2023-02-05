@@ -59,7 +59,7 @@ fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
         Jump(false),
         RigidBody::Dynamic,
         Velocity::default(),
-        Collider::cuboid(9., 16.),
+        Collider::cuboid(9., 15.95),
         LockedAxes::ROTATION_LOCKED_Z,
         Friction {
             coefficient: 5.,

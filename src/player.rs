@@ -73,7 +73,8 @@ fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
     ));
 }
 
-pub const MOVE_SPEED: f32 = 200.;
+pub const MAX_SPEED: f32 = 200.;
+pub const ACCELERATION: f32 = 50.;
 
 fn move_player(
     mut player: Query<
@@ -82,19 +83,13 @@ fn move_player(
             &ActionState<PlayerInput>,
             &Grounded,
             &Transform,
-            &Name,
         )
     >,
     rapier_context: Res<RapierContext>,
 ) {
-    for (mut velocity, input, grounded, pos, name) in  &mut player {
-        if input.just_pressed(PlayerInput::Jump) {
-            println!("Jump {}", name);
-        }
-
+    for (mut velocity, input, grounded, pos) in  &mut player {
     if input.just_pressed(PlayerInput::Jump) & grounded {
         velocity.linvel.y = 250.;
-        println!("Jump {}", name);
     } else if input.just_pressed(PlayerInput::Fall) {
         velocity.linvel.y = velocity.linvel.y.min(0.0);
     } else if input.pressed(PlayerInput::Left) {
@@ -106,7 +101,7 @@ fn move_player(
             QueryFilter::exclude_dynamic().exclude_sensors(),
         );
         if hit.is_none() {
-            velocity.linvel.x = -MOVE_SPEED;
+            velocity.linvel.x -= ACCELERATION;
         }
     } else if input.pressed(PlayerInput::Right) {
         let hit = rapier_context.cast_ray(
@@ -117,9 +112,10 @@ fn move_player(
             QueryFilter::exclude_dynamic().exclude_sensors(),
         );
         if hit.is_none() {
-            velocity.linvel.x = MOVE_SPEED;
+            velocity.linvel.x += ACCELERATION;
         }
     };
+    velocity.linvel.x = velocity.linvel.x.clamp(-MAX_SPEED, MAX_SPEED);
     }
 }
 

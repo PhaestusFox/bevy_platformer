@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_rapier2d::prelude::*;
+use ghost::GhostEvents;
 use leafwing_input_manager::prelude::*;
 use rand::Rng;
 
@@ -156,23 +157,21 @@ fn get_collectable(
     player: Query<Entity, With<RealPlayer>>,
     mut collectables: Query<&mut Transform, With<Collectable>>,
     rapier_context: Res<RapierContext>,
+    mut events: EventWriter<GhostEvents>,
 ) {
     let entity = player.single();
-
     /* Iterate through all the intersection pairs involving a specific collider. */
     for (collider1, collider2, intersecting) in rapier_context.intersections_with(entity) {
         if intersecting {
-            println!(
-                "The entities {:?} and {:?} have intersecting colliders!",
-                collider1, collider2
-            );
             if let Ok(mut pos) = collectables.get_mut(collider2) {
                 pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
                 pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+                events.send(GhostEvents::SpawnGhost);
             }
             if let Ok(mut pos) = collectables.get_mut(collider1) {
                 pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
                 pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+                events.send(GhostEvents::SpawnGhost);
             }
         }
     }

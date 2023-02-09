@@ -96,7 +96,7 @@ fn move_player(
         let hit = rapier_context.cast_ray(
             pos.translation.truncate() + Vec2::new(-10., 16.),
             Vec2::NEG_Y,
-            31.9,
+            31.,
             false,
             QueryFilter::exclude_dynamic().exclude_sensors(),
         );
@@ -107,7 +107,7 @@ fn move_player(
         let hit = rapier_context.cast_ray(
             pos.translation.truncate() + Vec2::new(10., 16.),
             Vec2::NEG_Y,
-            31.9,
+            31.,
             false,
             QueryFilter::exclude_dynamic().exclude_sensors(),
         );

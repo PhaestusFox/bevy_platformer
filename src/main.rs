@@ -36,6 +36,7 @@ fn main() {
         .add_plugin(PlayerPlugin)
         .add_plugin(MapPlugin)
         .add_plugin(ghost::GhostPlugin)
+        .insert_resource(Score(0))
         .run()
 }
 
@@ -158,6 +159,7 @@ fn get_collectable(
     mut collectables: Query<&mut Transform, With<Collectable>>,
     rapier_context: Res<RapierContext>,
     mut events: EventWriter<GhostEvents>,
+    mut score: ResMut<Score>,
 ) {
     let entity = player.single();
     /* Iterate through all the intersection pairs involving a specific collider. */
@@ -167,12 +169,17 @@ fn get_collectable(
                 pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
                 pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
                 events.send(GhostEvents::SpawnGhost);
+                score.0 += 1;
             }
             if let Ok(mut pos) = collectables.get_mut(collider1) {
                 pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
                 pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
                 events.send(GhostEvents::SpawnGhost);
+                score.0 += 1;
             }
         }
     }
 }
+
+#[derive(Resource)]
+struct Score(usize);

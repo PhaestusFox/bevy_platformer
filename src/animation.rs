@@ -31,7 +31,19 @@ impl SpriteAnimation {
 }
 
 #[derive(Component)]
-pub struct FrameTime(pub f32);
+pub struct FrameTime(pub Timer);
+
+impl FrameTime {
+    fn tick(&mut self, delta: std::time::Duration) {
+        self.0.tick(delta);
+    }
+    fn finished(&self) -> bool {
+        self.0.finished()
+    }
+    fn frames(&self) -> usize {
+        self.0.times_finished_this_tick() as usize
+    }
+}
 
 #[derive(Bundle)]
 pub struct PhoxAnimationBundle {
@@ -40,10 +52,10 @@ pub struct PhoxAnimationBundle {
 }
 
 impl PhoxAnimationBundle {
-    pub fn new(animaiton: SpriteAnimation) -> PhoxAnimationBundle {
+    pub fn new(animation: SpriteAnimation) -> PhoxAnimationBundle {
         PhoxAnimationBundle {
-            animaiton,
-            frame_time: FrameTime(0.0),
+            animaiton: animation,
+            frame_time: FrameTime(Timer::new(std::time::Duration::from_secs_f32(animation.frame_time), TimerMode::Repeating)),
         }
     }
 }
@@ -53,14 +65,10 @@ fn animate_sprite(
     time: Res<Time>,
 ) {
     for (mut sprite, animation, mut frame_time) in animations.iter_mut() {
-        frame_time.0 += time.delta_seconds();
-        if frame_time.0 > animation.frame_time {
-            let frames = (frame_time.0 / animation.frame_time) as usize;
-            sprite.index += frames;
-            if sprite.index >= animation.len {
-                sprite.index %= animation.len;
-            }
-            frame_time.0 -= animation.frame_time;
+        frame_time.tick(time.delta());
+        sprite.index += frame_time.frames();
+        if sprite.index >= animation.len {
+            sprite.index %= animation.len;
         }
     }
 }

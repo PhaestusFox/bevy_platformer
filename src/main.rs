@@ -141,8 +141,7 @@ fn spawn_map(
                 texture_atlas,
                 ..Default::default()
             },
-            animation,
-            FrameTime(0.0),
+            PhoxAnimationBundle::new(animation),
             RigidBody::Fixed,
             Collider::ball(8.),
             Sensor,

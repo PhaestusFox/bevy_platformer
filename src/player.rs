@@ -1,4 +1,4 @@
-use crate::animation::{Animation, Animations, PhoxAnimationBundle};
+use crate::animation::{Animation, Animations};
 use crate::user_input::PlayerInput;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
@@ -37,10 +37,10 @@ pub enum Player {
 pub struct RealPlayer;
 
 fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
-    let Some((texture_atlas, animation)) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
+    let Some(handle) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
     commands.spawn((
         SpriteSheetBundle {
-            texture_atlas,
+            texture_atlas: default(),
             sprite: TextureAtlasSprite {
                 index: 0,
                 ..Default::default()
@@ -49,7 +49,7 @@ fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
         },
         Player::Mask,
         RealPlayer,
-        PhoxAnimationBundle::new(animation),
+        handle,
         Grounded(true),
         GroundedCheck(0.0, 0),
         InputManagerBundle {
@@ -77,45 +77,43 @@ pub const MAX_SPEED: f32 = 200.;
 pub const ACCELERATION: f32 = 50.;
 
 fn move_player(
-    mut player: Query<
-        (
-            &mut Velocity,
-            &ActionState<PlayerInput>,
-            &Grounded,
-            &Transform,
-        )
-    >,
+    mut player: Query<(
+        &mut Velocity,
+        &ActionState<PlayerInput>,
+        &Grounded,
+        &Transform,
+    )>,
     rapier_context: Res<RapierContext>,
 ) {
-    for (mut velocity, input, grounded, pos) in  &mut player {
-    if input.just_pressed(PlayerInput::Jump) & grounded {
-        velocity.linvel.y = 250.;
-    } else if input.just_pressed(PlayerInput::Fall) {
-        velocity.linvel.y = velocity.linvel.y.min(0.0);
-    } else if input.pressed(PlayerInput::Left) {
-        let hit = rapier_context.cast_ray(
-            pos.translation.truncate() + Vec2::new(-10., 16.),
-            Vec2::NEG_Y,
-            31.,
-            false,
-            QueryFilter::exclude_dynamic().exclude_sensors(),
-        );
-        if hit.is_none() {
-            velocity.linvel.x -= ACCELERATION;
-        }
-    } else if input.pressed(PlayerInput::Right) {
-        let hit = rapier_context.cast_ray(
-            pos.translation.truncate() + Vec2::new(10., 16.),
-            Vec2::NEG_Y,
-            31.,
-            false,
-            QueryFilter::exclude_dynamic().exclude_sensors(),
-        );
-        if hit.is_none() {
-            velocity.linvel.x += ACCELERATION;
-        }
-    };
-    velocity.linvel.x = velocity.linvel.x.clamp(-MAX_SPEED, MAX_SPEED);
+    for (mut velocity, input, grounded, pos) in &mut player {
+        if input.just_pressed(PlayerInput::Jump) & grounded {
+            velocity.linvel.y = 250.;
+        } else if input.just_pressed(PlayerInput::Fall) {
+            velocity.linvel.y = velocity.linvel.y.min(0.0);
+        } else if input.pressed(PlayerInput::Left) {
+            let hit = rapier_context.cast_ray(
+                pos.translation.truncate() + Vec2::new(-10., 16.),
+                Vec2::NEG_Y,
+                31.,
+                false,
+                QueryFilter::exclude_dynamic().exclude_sensors(),
+            );
+            if hit.is_none() {
+                velocity.linvel.x -= ACCELERATION;
+            }
+        } else if input.pressed(PlayerInput::Right) {
+            let hit = rapier_context.cast_ray(
+                pos.translation.truncate() + Vec2::new(10., 16.),
+                Vec2::NEG_Y,
+                31.,
+                false,
+                QueryFilter::exclude_dynamic().exclude_sensors(),
+            );
+            if hit.is_none() {
+                velocity.linvel.x += ACCELERATION;
+            }
+        };
+        velocity.linvel.x = velocity.linvel.x.clamp(-MAX_SPEED, MAX_SPEED);
     }
 }
 
@@ -169,9 +167,7 @@ pub struct Grounded(pub bool);
 #[derive(Component, Default)]
 pub struct GroundedCheck(f32, isize);
 
-fn ground_detection(
-    mut player: Query<(&Transform, &mut Grounded, &mut GroundedCheck)>,
-) {
+fn ground_detection(mut player: Query<(&Transform, &mut Grounded, &mut GroundedCheck)>) {
     for (pos, mut on_ground, mut last) in &mut player {
         if (pos.translation.y * 100.).round() == last.0 {
             last.1 += 1;

@@ -1,0 +1,41 @@
+[
+    (
+        fps: 20.0,
+        tile_size: (32.0, 32.0),
+        rows: 1,
+        columns: 11,
+        texture_path: "Main Characters/Ninja Frog/Idle (32x32).png",
+    ),
+    (   
+        id: Some("Fall"),
+        fps: 1.,
+        tile_size: (32.0, 32.0),
+        rows: 1,
+        columns: 1,
+        texture_path: "Main Characters/Ninja Frog/Fall (32x32).png",
+    ),
+    (
+        id: Some("Jump"),
+        fps: 1.,
+        tile_size: (32.0, 32.0),
+        rows: 1,
+        columns: 1,
+        texture_path: "Main Characters/Ninja Frog/Jump (32x32).png",
+    ),
+    (
+        id: Some("DoubleJump"),
+        fps: 20.,
+        tile_size: (32.0, 32.0),
+        rows: 1,
+        columns: 6,
+        texture_path: "Main Characters/Ninja Frog/Double Jump (32x32).png",
+    ),
+    (
+        id: Some("Run"),
+        fps: 20.,
+        tile_size: (32.0, 32.0),
+        rows: 1,
+        columns: 12,
+        texture_path: "Main Characters/Ninja Frog/Run (32x32).png",
+    ),
+]

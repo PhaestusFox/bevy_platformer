@@ -27,7 +27,10 @@ fn main() {
         .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
         .insert_resource(RapierConfiguration {
             gravity: Vec2::Y * -294.,
-            timestep_mode: TimestepMode::Fixed { dt: 1./60., substeps: 1 },
+            timestep_mode: TimestepMode::Fixed {
+                dt: 1. / 60.,
+                substeps: 1,
+            },
             ..Default::default()
         })
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
@@ -134,14 +137,14 @@ fn spawn_map(
         material: TerrainMaterial::Iron,
     })));
 
-    if let Some((texture_atlas, animation)) = animations.get(Animation::Strawberry) {
+    if let Some(handle) = animations.get(Animation::Strawberry) {
         commands.spawn((
             SpriteSheetBundle {
                 transform: Transform::from_translation(Vec3::new(32., 16., 0.)),
-                texture_atlas,
+                texture_atlas: default(),
                 ..Default::default()
             },
-            PhoxAnimationBundle::new(animation),
+            handle,
             RigidBody::Fixed,
             Collider::ball(8.),
             Sensor,

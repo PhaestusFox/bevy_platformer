@@ -3,17 +3,16 @@ use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_rapier2d::prelude::*;
 use ghost::GhostEvents;
 use leafwing_input_manager::prelude::*;
-use rand::Rng;
 
 mod animation;
 mod ghost;
 mod player;
-mod tile_map;
 mod user_input;
+mod map;
 
 use animation::*;
 use player::*;
-use tile_map::*;
+use map::*;
 
 fn main() {
     App::new()
@@ -48,16 +47,14 @@ fn spawn_cam(mut commands: Commands) {
 }
 
 fn spawn_map(
-    mut commands: Commands,
-    animations: Res<Animations>,
     mut map_event: EventWriter<MapEvent>,
 ) {
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    map_event.send(MapEvent::spawn(MapBox {
         offset: IVec3 { x: -6, y: -1, z: 1 },
         width: 13,
         hight: 1,
         material: TerrainMaterial::Gold,
-    })));
+    }));
     map_event.send(MapEvent::Spawn(Box::new(MapBox {
         offset: IVec3 { x: 7, y: 1, z: 1 },
         width: 2,
@@ -73,11 +70,11 @@ fn spawn_map(
     for i in 0..5 {
         map_event.send(MapEvent::Spawn(Box::new(MapBox {
             offset: IVec3 {
-                x: -7 - i,
-                y: i,
+                x: -11,
+                y: 4-i,
                 z: 1,
             },
-            width: 1,
+            width: 1 + i,
             hight: 1,
             material: TerrainMaterial::Gold,
         })));
@@ -137,47 +134,41 @@ fn spawn_map(
         material: TerrainMaterial::Iron,
     })));
 
-    if let Some(handle) = animations.get(Animation::Strawberry) {
-        commands.spawn((
-            SpriteSheetBundle {
-                transform: Transform::from_translation(Vec3::new(32., 16., 0.)),
-                texture_atlas: default(),
-                ..Default::default()
-            },
-            handle,
-            RigidBody::Fixed,
-            Collider::ball(8.),
-            Sensor,
-            Collectable,
-        ));
-    }
+    map_event.send(MapEvent::spawn(Collectable {
+        collectable_type: CollectableType::Strawberry,
+        spawn_type: SpawnType::Fixed(IVec2::new(2, 1)),
+    }));
+
+    map_event.send(MapEvent::spawn(Collectable {
+        collectable_type: CollectableType::Bananan,
+        spawn_type: SpawnType::RandomRange(IVec2::new(-10, 0), IVec2::new(10, 20)),
+    }));
 }
 
-#[derive(Component)]
-struct Collectable;
-
 fn get_collectable(
+    mut commands: Commands,
     player: Query<Entity, With<RealPlayer>>,
-    mut collectables: Query<&mut Transform, With<Collectable>>,
+    mut collectables: Query<&Collectable>,
     rapier_context: Res<RapierContext>,
     mut events: EventWriter<GhostEvents>,
+    mut map_events: EventWriter<MapEvent>,
     mut score: ResMut<Score>,
 ) {
     let entity = player.single();
     /* Iterate through all the intersection pairs involving a specific collider. */
     for (collider1, collider2, intersecting) in rapier_context.intersections_with(entity) {
         if intersecting {
-            if let Ok(mut pos) = collectables.get_mut(collider2) {
-                pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
-                pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+            if let Ok(collectable) = collectables.get_mut(collider2) {
                 events.send(GhostEvents::SpawnGhost);
+                map_events.send(MapEvent::spawn(collectable.clone()));
                 score.0 += 1;
+                commands.entity(collider2).despawn_recursive();
             }
-            if let Ok(mut pos) = collectables.get_mut(collider1) {
-                pos.translation.x = rand::thread_rng().gen_range(-100.0..100.);
-                pos.translation.y = rand::thread_rng().gen_range(-10.0..150.);
+            if let Ok(collectable) = collectables.get_mut(collider1) {
+                map_events.send(MapEvent::spawn(collectable.clone()));
                 events.send(GhostEvents::SpawnGhost);
                 score.0 += 1;
+                commands.entity(collider2).despawn_recursive();
             }
         }
     }

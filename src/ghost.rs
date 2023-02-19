@@ -3,8 +3,7 @@ use bevy::{prelude::*, ecs::query::QuerySingleError};
 use crate::{
     animation::{Animation, Animations},
     player::{Grounded, GroundedCheck, Jump, Player, PlayerStages, RealPlayer},
-    user_input::PlayerInput,
-    Score,
+    user_input::PlayerInput, Score,
 };
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
@@ -153,7 +152,7 @@ fn handle_ghost_event(
                 }
             }
             GhostEvents::SpawnGhost => {
-                let Some(handle) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
+                let Some(handle) = animations.get_animation(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
                 commands.spawn((
                     (
                         SpriteSheetBundle {

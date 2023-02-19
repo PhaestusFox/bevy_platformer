@@ -67,119 +67,131 @@ fn animate_sprite(
 
 #[derive(Resource)]
 pub struct Animations {
-    map: HashMap<Animation, Handle<SpriteAnimation>>,
+    animations: HashMap<Animation, Handle<SpriteAnimation>>,
+    atlas: HashMap<Animation, Handle<TextureAtlas>>,
 }
 
 impl FromWorld for Animations {
     fn from_world(world: &mut World) -> Self {
         let mut map = Animations {
-            map: HashMap::new(),
+            animations: HashMap::new(),
+            atlas: HashMap::new(),
         };
         let asset_server = world.resource::<AssetServer>();
         // Mask Dude
-        map.add(
+        map.add_animation(
             Animation::MaskIdle,
             asset_server.load("Animations/Mask.san.ron"),
         );
-        map.add(
+        map.add_animation(
             Animation::MaskFall,
             asset_server.load("Animations/Mask.san.ron#Fall"),
         );
-        map.add(
+        map.add_animation(
             Animation::MaskJump,
             asset_server.load("Animations/Mask.san.ron#Jump"),
         );
-        map.add(
+        map.add_animation(
             Animation::MaskDoubleJump,
             asset_server.load("Animations/Mask.san.ron#DoubleJump"),
         );
-        map.add(
+        map.add_animation(
             Animation::MaskRun,
             asset_server.load("Animations/Mask.san.ron#Run"),
         );
 
         //Pink Man
-        map.add(
+        map.add_animation(
             Animation::PinkIdle,
             asset_server.load("Animations/Pink.san.ron"),
         );
-        map.add(
+        map.add_animation(
             Animation::PinkFall,
             asset_server.load("Animations/Pink.san.ron#Fall"),
         );
-        map.add(
+        map.add_animation(
             Animation::PinkJump,
             asset_server.load("Animations/Pink.san.ron#Jump"),
         );
-        map.add(
+        map.add_animation(
             Animation::PinkDoubleJump,
             asset_server.load("Animations/Pink.san.ron#DoubleJump"),
         );
-        map.add(
+        map.add_animation(
             Animation::PinkRun,
             asset_server.load("Animations/Pink.san.ron#Run"),
         );
 
         //Ninja Frog
-        map.add(
+        map.add_animation(
             Animation::NinjaIdle,
             asset_server.load("Animations/Ninja.san.ron"),
         );
-        map.add(
+        map.add_animation(
             Animation::NinjaFall,
             asset_server.load("Animations/Ninja.san.ron#Fall"),
         );
-        map.add(
+        map.add_animation(
             Animation::NinjaJump,
             asset_server.load("Animations/Ninja.san.ron#Jump"),
         );
-        map.add(
+        map.add_animation(
             Animation::NinjaDoubleJump,
             asset_server.load("Animations/Ninja.san.ron#DoubleJump"),
         );
-        map.add(
+        map.add_animation(
             Animation::NinjaRun,
             asset_server.load("Animations/Ninja.san.ron#Run"),
         );
 
         //Virtual Guy
-        map.add(
+        map.add_animation(
             Animation::GuyIdle,
             asset_server.load("Animations/Guy.san.ron"),
         );
-        map.add(
+        map.add_animation(
             Animation::GuyFall,
             asset_server.load("Animations/Guy.san.ron#Fall"),
         );
-        map.add(
+        map.add_animation(
             Animation::GuyJump,
             asset_server.load("Animations/Guy.san.ron#Jump"),
         );
-        map.add(
+        map.add_animation(
             Animation::GuyDoubleJump,
             asset_server.load("Animations/Guy.san.ron#DoubleJump"),
         );
-        map.add(
+        map.add_animation(
             Animation::GuyRun,
             asset_server.load("Animations/Guy.san.ron#Run"),
         );
 
         // Collectables
-        map.add(
+        map.add_animation(
             Animation::Strawberry,
             asset_server.load("Animations/Collectables.san.ron#Strawberry"),
         );
+        map.add_animation(Animation::Bananas, asset_server.load("Animations/Collectables.san.ron#Bananas"),);
+
+        //terrain
+        map.add_atlas(Animation::Terrain, asset_server.load("Animations/Terrain.san.ron#Atlas"));
 
         map
     }
 }
 
 impl Animations {
-    pub fn add(&mut self, id: Animation, handle: Handle<SpriteAnimation>) {
-        self.map.insert(id, handle);
+    pub fn add_animation(&mut self, id: Animation, handle: Handle<SpriteAnimation>) {
+        self.animations.insert(id, handle);
     }
-    pub fn get(&self, id: Animation) -> Option<Handle<SpriteAnimation>> {
-        self.map.get(&id).cloned()
+    pub fn get_animation(&self, id: Animation) -> Option<Handle<SpriteAnimation>> {
+        self.animations.get(&id).cloned()
+    }
+    pub fn get_atlas(&self, id: Animation) -> Option<Handle<TextureAtlas>> {
+        self.atlas.get(&id).cloned()
+    }
+    pub fn add_atlas(&mut self, id: Animation, handle: Handle<TextureAtlas>) {
+        self.atlas.insert(id, handle);
     }
 }
 
@@ -191,6 +203,7 @@ pub enum Animation {
     MaskDoubleJump,
     MaskFall,
     Strawberry,
+    Bananas,
     NinjaRun,
     NinjaIdle,
     NinjaJump,
@@ -206,6 +219,7 @@ pub enum Animation {
     GuyJump,
     GuyDoubleJump,
     GuyFall,
+    Terrain,
 }
 
 fn change_player_animation(
@@ -270,7 +284,7 @@ fn change_player_animation(
             },
         };
 
-        let Some(handle) = animations.get(set) else {error!("No Animation {:?} Loaded", set); return;};
+        let Some(handle) = animations.get_animation(set) else {error!("No Animation {:?} Loaded", set); return;};
         *animation = handle;
     }
 }

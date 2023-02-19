@@ -1,88 +1,9 @@
-use std::collections::HashSet;
-
 use bevy::prelude::*;
-use bevy_rapier2d::prelude::*;
+use crate::animation::{Animations, Animation};
 
-pub struct MapPlugin;
+use super::*;
 
-impl Plugin for MapPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<TerrainSprites>()
-            .add_event::<MapEvent>()
-            .add_system(spawn_map_objects)
-            .init_resource::<MapData>();
-    }
-}
-
-pub enum MapEvent {
-    Spawn(Box<dyn MapObject>),
-}
-
-#[derive(Resource)]
-pub struct TerrainSprites(Handle<TextureAtlas>);
-
-impl TerrainSprites {
-    fn new(handle: Handle<TextureAtlas>) -> TerrainSprites {
-        TerrainSprites(handle)
-    }
-    pub fn get_atlas(&self) -> Handle<TextureAtlas> {
-        self.0.clone()
-    }
-}
-
-impl FromWorld for TerrainSprites {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let texture_atles = TextureAtlas::from_grid(
-            asset_server.load("Terrain/Terrain (16x16).png"),
-            Vec2::splat(16.),
-            22,
-            11,
-            None,
-            None,
-        );
-        let mut assets = world.resource_mut::<Assets<TextureAtlas>>();
-        TerrainSprites::new(assets.add(texture_atles))
-    }
-}
-
-#[derive(Clone, Copy)]
-#[allow(dead_code)]
-pub enum TerrainMaterial {
-    Gold = 193,
-    Brick = 105,
-    Copper = 188,
-    Iron = 100,
-    Clay = 12,
-}
-
-pub enum TerrainType {
-    OneLeft = 0,
-    OneHorizontal = 1,
-    OneRight = 2,
-    OneDown = 3,
-    Block = 22,
-    TopLeft = 23,
-    TopRight = 24,
-    OneVertical = 25,
-    BottomLeft = 45,
-    BottomRight = 46,
-    OneUp = 47,
-}
-
-impl TerrainMaterial {
-    fn to_sprite(self, terrain_type: TerrainType) -> usize {
-        use TerrainMaterial::*;
-        match self {
-            Gold | Clay | Copper | Iron | Brick => self as usize + terrain_type as usize,
-        }
-    }
-}
-
-pub trait MapObject: 'static + Send + Sync {
-    fn spawn(&self, terrain: &TerrainSprites, commands: &mut Commands, map_data: &mut MapData);
-}
-
+#[derive(Clone)]
 pub struct MapBox {
     pub offset: IVec3,
     pub width: i32,
@@ -91,7 +12,7 @@ pub struct MapBox {
 }
 
 impl MapObject for MapBox {
-    fn spawn(&self, terrain: &TerrainSprites, commands: &mut Commands, map_data: &mut MapData) {
+    fn spawn(&self, terrain: &Animations, commands: &mut Commands, map_data: &mut MapData) {
         match (self.width, self.hight) {
             (1, 1) => {
                 let offset_x = self.offset.x * 16;
@@ -108,7 +29,7 @@ impl MapObject for MapBox {
                         index: self.material.to_sprite(TerrainType::Block) as usize,
                         ..Default::default()
                     },
-                    texture_atlas: terrain.get_atlas(),
+                    texture_atlas: terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                     ..Default::default()
                 });
             }
@@ -155,7 +76,7 @@ impl MapObject for MapBox {
                                     },
                                     ..Default::default()
                                 },
-                                terrain.get_atlas(),
+                                terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                             ));
                         }
                     });
@@ -203,7 +124,7 @@ impl MapObject for MapBox {
                                     },
                                     ..Default::default()
                                 },
-                                terrain.get_atlas(),
+                                terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                             ));
                         }
                     });
@@ -235,7 +156,7 @@ impl MapObject for MapBox {
                                 index: self.material.to_sprite(TerrainType::BottomLeft),
                                 ..Default::default()
                             },
-                            terrain.get_atlas(),
+                            terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                         ));
                         map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y));
                         p.spawn((
@@ -247,7 +168,7 @@ impl MapObject for MapBox {
                                 index: self.material.to_sprite(TerrainType::BottomRight),
                                 ..Default::default()
                             },
-                            terrain.get_atlas(),
+                            terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                         ));
                         map_data.set_full(IVec2::new(self.offset.x, self.offset.y + 1));
                         p.spawn((
@@ -259,7 +180,7 @@ impl MapObject for MapBox {
                                 index: self.material.to_sprite(TerrainType::TopLeft),
                                 ..Default::default()
                             },
-                            terrain.get_atlas(),
+                            terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                         ));
                         map_data.set_full(IVec2::new(self.offset.x + 1, self.offset.y + 1));
                         p.spawn((
@@ -271,7 +192,7 @@ impl MapObject for MapBox {
                                 index: self.material.to_sprite(TerrainType::TopRight),
                                 ..Default::default()
                             },
-                            terrain.get_atlas(),
+                            terrain.get_atlas(Animation::Terrain).expect("Terrain is loaded"),
                         ));
                     });
             }
@@ -279,47 +200,5 @@ impl MapObject for MapBox {
                 warn!("Spawning boxes of size ({},{}) is not implmeted", x, y);
             }
         }
-    }
-}
-
-#[derive(Bundle, Default)]
-struct CellBundle {
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
-    pub sprite: TextureAtlasSprite,
-    pub texture_atlas: Handle<TextureAtlas>,
-    pub collider: Collider,
-    pub rigid_body: RigidBody,
-}
-
-fn spawn_map_objects(
-    mut commands: Commands,
-    mut events: EventReader<MapEvent>,
-    terrain: Res<TerrainSprites>,
-    mut map_data: ResMut<MapData>,
-) {
-    for event in events.iter() {
-        match event {
-            MapEvent::Spawn(obj) => {
-                obj.spawn(&terrain, &mut commands, &mut map_data);
-            }
-        }
-    }
-}
-
-#[derive(Default, Resource)]
-pub struct MapData {
-    empty: HashSet<IVec2>,
-}
-
-impl MapData {
-    pub fn is_empty(&self, cell: IVec2) -> bool {
-        !self.empty.contains(&cell)
-    }
-
-    pub fn set_full(&mut self, cell: IVec2) {
-        self.empty.insert(cell);
     }
 }

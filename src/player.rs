@@ -37,7 +37,7 @@ pub enum Player {
 pub struct RealPlayer;
 
 fn spawn_player(mut commands: Commands, animations: Res<Animations>) {
-    let Some(handle) = animations.get(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
+    let Some(handle) = animations.get_animation(Animation::MaskIdle) else {error!("Failed to find animation: Idle"); return;};
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: default(),

@@ -4,12 +4,14 @@ use bevy_rapier2d::prelude::*;
 mod tile_map;
 mod collectable;
 mod square;
+mod levels;
 
 mod prelude {
     use super::*;
     pub use tile_map::{MapData, MapObject, MapEvent, TerrainMaterial, TerrainType};
     pub use square::MapBox;
     pub use collectable::{Collectable, CollectableType, SpawnType};
+    pub use levels::Level;
 }
 
 pub struct MapPlugin;
@@ -18,7 +20,9 @@ impl bevy::prelude::Plugin for MapPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_event::<MapEvent>()
             .add_system(tile_map::spawn_map_objects)
-            .init_resource::<MapData>();
+            .init_resource::<MapData>()
+            .add_asset::<levels::Level>()
+            .add_asset_loader(levels::LevelLoader);
     }
 }
 

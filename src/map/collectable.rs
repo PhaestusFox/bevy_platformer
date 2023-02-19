@@ -1,16 +1,17 @@
 use bevy::prelude::*;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use crate::animation::{Animations, Animation};
 
 use super::*;
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Deserialize, Serialize)]
 pub struct Collectable {
     pub collectable_type: CollectableType,
     pub spawn_type: SpawnType,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum CollectableType {
     Strawberry,
     Bananan,
@@ -25,7 +26,7 @@ impl Into<Animation> for CollectableType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub enum SpawnType {
     None,
     RandomRange(IVec2, IVec2),
@@ -35,12 +36,11 @@ pub enum SpawnType {
     OrderDec(Vec<IVec2>),
     RandomPointsDec(Vec<IVec2>),
 }
-
 const MAX_RNG_TRYS: usize = 50;
 
 impl MapObject for Collectable {
     fn spawn(&self, terrain: &Animations, commands: &mut Commands, map_data: &mut MapData) {
-        let mut new_self = self.clone();
+        let mut new_self = <Self as Clone>::clone(self);
         let mut set_none = false;
         let pos = match &mut new_self.spawn_type {
             SpawnType::None => {return;}
@@ -121,5 +121,14 @@ impl MapObject for Collectable {
             Name::new("Collectable"),
             new_self,
         ));
+    }
+    fn object_type(&self) -> super::levels::MapObjectType {
+        super::levels::MapObjectType::Collectable
+    }
+    fn serializable(&self) -> bevy::reflect::serde::Serializable {
+        bevy::reflect::serde::Serializable::Borrowed(self)
+    }
+    fn clone(&self) -> Box<dyn MapObject> {
+        Box::new(<Self as Clone>::clone(self))
     }
 }

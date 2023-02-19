@@ -21,6 +21,7 @@ fn main() {
         .add_plugin(PhoxAnimationPlugin)
         .add_startup_system(spawn_cam)
         .add_startup_system(spawn_map)
+        .add_system(update_map)
         .add_system(get_collectable)
         .register_type::<TextureAtlasSprite>()
         .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
@@ -46,103 +47,123 @@ fn spawn_cam(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
+#[derive(Debug, Resource)]
+struct CurrentLevel(Handle<Level>, bool);
+
 fn spawn_map(
-    mut map_event: EventWriter<MapEvent>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
 ) {
-    map_event.send(MapEvent::spawn(MapBox {
-        offset: IVec3 { x: -6, y: -1, z: 1 },
-        width: 13,
-        hight: 1,
-        material: TerrainMaterial::Gold,
-    }));
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: 7, y: 1, z: 1 },
-        width: 2,
-        hight: 2,
-        material: TerrainMaterial::Gold,
-    })));
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: 7, y: 1, z: 1 },
-        width: 1,
-        hight: 1,
-        material: TerrainMaterial::Clay,
-    })));
-    for i in 0..5 {
-        map_event.send(MapEvent::Spawn(Box::new(MapBox {
-            offset: IVec3 {
-                x: -11,
-                y: 4-i,
-                z: 1,
-            },
-            width: 1 + i,
-            hight: 1,
-            material: TerrainMaterial::Gold,
-        })));
+    commands.insert_resource(CurrentLevel(asset_server.load("Levels/test.lvl.ron"), false));
+}
+
+fn update_map(
+    mut map_event: EventWriter<MapEvent>,
+    levels: Res<Assets<Level>>,
+    mut current_level: ResMut<CurrentLevel>,
+) {
+    if current_level.1 {
+        return;
     }
-
-    for i in 0..5 {
-        map_event.send(MapEvent::Spawn(Box::new(MapBox {
-            offset: IVec3 {
-                x: i * 2,
-                y: 15,
-                z: 1,
-            },
-            width: 1,
-            hight: 1,
-            material: TerrainMaterial::Brick,
-        })));
+    let Some(level) = levels.get(&current_level.0) else {return;};
+    for obj in level.objects.iter() {
+        map_event.send(MapEvent::Spawn(MapObject::clone(obj.as_ref())))
     }
+    current_level.1 = true;
+    // map_event.send(MapEvent::spawn(MapBox {
+    //     offset: IVec3 { x: -6, y: -1, z: 1 },
+    //     width: 13,
+    //     hight: 1,
+    //     material: TerrainMaterial::Gold,
+    // }));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: 7, y: 1, z: 1 },
+    //     width: 2,
+    //     hight: 2,
+    //     material: TerrainMaterial::Gold,
+    // })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: 7, y: 1, z: 1 },
+    //     width: 1,
+    //     hight: 1,
+    //     material: TerrainMaterial::Clay,
+    // })));
+    // for i in 0..5 {
+    //     map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //         offset: IVec3 {
+    //             x: -11,
+    //             y: 4-i,
+    //             z: 1,
+    //         },
+    //         width: 1 + i,
+    //         hight: 1,
+    //         material: TerrainMaterial::Gold,
+    //     })));
+    // }
 
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -5, y: 10, z: 1 },
-        width: 1,
-        hight: 4,
-        material: TerrainMaterial::Gold,
-    })));
+    // for i in 0..5 {
+    //     map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //         offset: IVec3 {
+    //             x: i * 2,
+    //             y: 15,
+    //             z: 1,
+    //         },
+    //         width: 1,
+    //         hight: 1,
+    //         material: TerrainMaterial::Brick,
+    //     })));
+    // }
 
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -6, y: 9, z: 1 },
-        width: 1,
-        hight: 5,
-        material: TerrainMaterial::Gold,
-    })));
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -6, y: 9, z: 1 },
-        width: 1,
-        hight: 1,
-        material: TerrainMaterial::Clay,
-    })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -5, y: 10, z: 1 },
+    //     width: 1,
+    //     hight: 4,
+    //     material: TerrainMaterial::Gold,
+    // })));
 
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -10, y: 6, z: 1 },
-        width: 2,
-        hight: 2,
-        material: TerrainMaterial::Gold,
-    })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -6, y: 9, z: 1 },
+    //     width: 1,
+    //     hight: 5,
+    //     material: TerrainMaterial::Gold,
+    // })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -6, y: 9, z: 1 },
+    //     width: 1,
+    //     hight: 1,
+    //     material: TerrainMaterial::Clay,
+    // })));
 
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -2, y: 7, z: 1 },
-        width: 5,
-        hight: 1,
-        material: TerrainMaterial::Copper,
-    })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -10, y: 6, z: 1 },
+    //     width: 2,
+    //     hight: 2,
+    //     material: TerrainMaterial::Gold,
+    // })));
 
-    map_event.send(MapEvent::Spawn(Box::new(MapBox {
-        offset: IVec3 { x: -2, y: 8, z: 1 },
-        width: 4,
-        hight: 1,
-        material: TerrainMaterial::Iron,
-    })));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -2, y: 7, z: 1 },
+    //     width: 5,
+    //     hight: 1,
+    //     material: TerrainMaterial::Copper,
+    // })));
 
-    map_event.send(MapEvent::spawn(Collectable {
-        collectable_type: CollectableType::Strawberry,
-        spawn_type: SpawnType::Fixed(IVec2::new(2, 1)),
-    }));
+    // map_event.send(MapEvent::Spawn(Box::new(MapBox {
+    //     offset: IVec3 { x: -2, y: 8, z: 1 },
+    //     width: 4,
+    //     hight: 1,
+    //     material: TerrainMaterial::Iron,
+    // })));
 
-    map_event.send(MapEvent::spawn(Collectable {
-        collectable_type: CollectableType::Bananan,
-        spawn_type: SpawnType::RandomRange(IVec2::new(-10, 0), IVec2::new(10, 20)),
-    }));
+    // map_event.send(MapEvent::spawn(Collectable {
+    //     collectable_type: CollectableType::Strawberry,
+    //     spawn_type: SpawnType::Fixed(IVec2::new(2, 1)),
+    // }));
+
+    // map_event.send(MapEvent::spawn(Collectable {
+    //     collectable_type: CollectableType::Bananan,
+    //     spawn_type: SpawnType::RandomRange(IVec2::new(-10, 0), IVec2::new(10, 20)),
+    // }));
 }
 
 fn get_collectable(
@@ -160,12 +181,12 @@ fn get_collectable(
         if intersecting {
             if let Ok(collectable) = collectables.get_mut(collider2) {
                 events.send(GhostEvents::SpawnGhost);
-                map_events.send(MapEvent::spawn(collectable.clone()));
+                map_events.send(MapEvent::spawn(Clone::clone(collectable)));
                 score.0 += 1;
                 commands.entity(collider2).despawn_recursive();
             }
             if let Ok(collectable) = collectables.get_mut(collider1) {
-                map_events.send(MapEvent::spawn(collectable.clone()));
+                map_events.send(MapEvent::spawn(Clone::clone(collectable)));
                 events.send(GhostEvents::SpawnGhost);
                 score.0 += 1;
                 commands.entity(collider2).despawn_recursive();

@@ -1,0 +1,179 @@
+(
+    start: (0, 0),
+    objects: {
+        box: (
+            offset: (-6,-1,1),
+            width: 13,
+            hight: 1,
+            material: Gold,
+        ),
+        box: (
+            offset: (7,1,1),
+            width: 2,
+            hight: 2,
+            material: Gold,
+        ),
+        box: (
+            offset: (7,1,1),
+            width: 1,
+            hight: 1,
+            material: Clay,
+        ),
+
+        box: (
+            offset: (
+               -11,
+               3,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Gold,
+        ),
+        box: (
+            offset: (
+               -11,
+               2,
+               1,
+            ),
+            width: 2,
+            hight: 1,
+            material: Gold,
+        ),
+        box: (
+            offset: (
+               -11,
+               1,
+               1,
+            ),
+            width: 3,
+            hight: 1,
+            material: Gold,
+        ),
+        box: (
+            offset: (
+               -11,
+               0,
+               1,
+            ),
+            width: 4,
+            hight: 1,
+            material: Gold,
+        ),
+        box: (
+            offset: (
+               -11,
+               -1,
+               1,
+            ),
+            width: 5,
+            hight: 1,
+            material: Gold,
+        ),
+
+        box: (
+            offset: (
+               0,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+        box: (
+            offset: (
+               2,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+        box: (
+            offset: (
+               4,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+        box: (
+            offset: (
+               6,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+        box: (
+            offset: (
+               8,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+        box: (
+            offset: (
+               10,
+               15,
+               1,
+            ),
+            width: 1,
+            hight: 1,
+            material: Brick,
+        ),
+    box: (
+        offset: (-5,10,1),
+        width: 1,
+        hight: 4,
+        material: Gold,
+    ),
+    box: (
+        offset: (-6,9,1),
+        width: 1,
+        hight: 5,
+        material: Gold,
+    ),
+    box: (
+        offset: (-6,9,1),
+        width: 1,
+        hight: 1,
+        material: Clay,
+    ),
+    box: (
+        offset: (-10,6,1),
+        width: 2,
+        hight: 2,
+        material: Gold,
+    ),
+    box: (
+        offset: (-2,7,1),
+        width: 5,
+        hight: 1,
+        material: Copper,
+    ),
+    box: (
+        offset: (-2,8,1),
+        width: 4,
+        hight: 1,
+        material: Iron,
+    ),
+    collectable: (
+        collectable_type: Strawberry,
+        spawn_type: Fixed((2, 1)),
+    ),
+    collectable: (
+        collectable_type: Bananan,
+        spawn_type: RandomRange((-10, 0), (10, 20)),
+    ),
+    },
+)

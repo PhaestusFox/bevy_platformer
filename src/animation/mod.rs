@@ -47,16 +47,16 @@ impl FrameTime {
 }
 
 fn animate_sprite(
-    mut entitys: Query<(
+    mut entities: Query<(
         &mut TextureAtlasSprite,
         &Handle<SpriteAnimation>,
         &mut FrameTime,
     )>,
-    animaitons: Res<Assets<SpriteAnimation>>,
+    animations: Res<Assets<SpriteAnimation>>,
     time: Res<Time>,
 ) {
-    for (mut sprite, animation, mut frame_time) in entitys.iter_mut() {
-        let Some(animation) = animaitons.get(animation) else {error!("Animation Not Loaded"); continue;};
+    for (mut sprite, animation, mut frame_time) in entities.iter_mut() {
+        let Some(animation) = animations.get(animation) else {error!("Animation Not Loaded"); continue;};
         frame_time.tick(time.delta());
         sprite.index += frame_time.frames();
         if sprite.index >= animation.len {
@@ -216,7 +216,7 @@ fn change_player_animation(
         &Jump,
         &Velocity,
     )>,
-    animaitons: Res<Animations>,
+    animations: Res<Animations>,
 ) {
     for (player, mut animation, mut sprite, jump, velocity) in &mut player {
         if velocity.linvel.x < -0.1 {
@@ -270,7 +270,7 @@ fn change_player_animation(
             },
         };
 
-        let Some(handle) = animaitons.get(set) else {error!("No Animation {:?} Loaded", set); return;};
+        let Some(handle) = animations.get(set) else {error!("No Animation {:?} Loaded", set); return;};
         *animation = handle;
     }
 }

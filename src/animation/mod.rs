@@ -15,7 +15,7 @@ impl Plugin for PhoxAnimationPlugin {
         app.add_system(animate_sprite)
             .add_system(change_player_animation)
             .add_system(update_animation_components)
-            .add_system(add_frame_time)
+            .add_system_to_stage(CoreStage::Last, add_frame_time)
             .add_asset::<SpriteAnimation>()
             .add_asset_loader(loader::AnimationLoader)
             .init_resource::<Animations>()

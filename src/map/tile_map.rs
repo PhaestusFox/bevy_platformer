@@ -2,7 +2,6 @@ use std::collections::HashSet;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-
 use crate::animation::Animations;
 
 pub enum MapEvent {

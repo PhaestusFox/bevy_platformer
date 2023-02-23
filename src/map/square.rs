@@ -1,7 +1,6 @@
 use bevy::{prelude::*};
 use serde::{Deserialize, Serialize};
 use crate::animation::{Animations, Animation};
-
 use super::*;
 
 #[derive(Clone, Deserialize, Serialize)]

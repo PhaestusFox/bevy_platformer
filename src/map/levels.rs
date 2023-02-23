@@ -1,6 +1,6 @@
 use bevy::{prelude::*, reflect::TypeUuid, asset::{AssetLoader, LoadedAsset}};
+use bincode::Options;
 use serde::{Serialize, Deserialize, de::{Visitor, DeserializeSeed}};
-
 use super::*;
 
 #[derive(TypeUuid)]
@@ -8,6 +8,22 @@ use super::*;
 pub struct Level {
     pub player_start: IVec2,
     pub objects: Vec<Box<dyn MapObject>>,
+}
+
+impl Level {
+    pub fn from_base64(str: &str) -> Result<Level, anyhow::Error> {
+        
+    }
+}
+
+impl PartialEq for Level {
+    fn eq(&self, other: &Self) -> bool {
+        if self.player_start != other.player_start || self.objects.len() != other.objects.len() {return false;}
+        for (object0, object1) in self.objects.iter().zip(other.objects.iter()) {
+            if object0.type_id() != object1.type_id() {return false;}
+        }
+        true
+    }
 }
 
 impl<'de> Deserialize<'de> for Level {
@@ -54,6 +70,14 @@ impl<'de> Visitor<'de> for LevelVisitor {
             }
         }
         Ok(data)
+    }
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::SeqAccess<'de>, {
+        Ok(Level {
+            player_start: seq.next_element::<IVec2>()?.ok_or(serde::de::Error::missing_field("Start"))?,
+            objects: seq.next_element_seed(ObjectsVisitor)?.ok_or(serde::de::Error::missing_field("Objects"))?
+        })
     }
 }
 
@@ -162,4 +186,30 @@ fn test_serialize_level() {
         ]
     };
     assert_eq!(include_str!("test.lvl.ron"), ron::ser::to_string_pretty(&level, ron::ser::PrettyConfig::default()).unwrap());
+}
+
+#[test]
+fn bincode_serde() {
+    let level = Level {
+        player_start: IVec2::new(0, 0),
+        objects: vec![
+            Box::new(MapBox{
+                offset: IVec3 { x: 10, y: 4, z: 0 },
+                width: 1,
+                hight: 1,
+                material: TerrainMaterial::Gold,
+            }),
+            Box::new(Collectable{
+                collectable_type: CollectableType::Strawberry,
+                spawn_type: SpawnType::Fixed(IVec2 { x: 5, y: 5 }),
+            })
+        ]
+    };
+
+    let ser = bincode::options().with_varint_encoding().serialize(&level).unwrap();
+    let base64 = base64::encode(&ser);
+    assert_eq!(base64, "AAACABQIAAICAAEAAwoK");
+    println!("De = {};\nLen = {}\n{:?}", base64, ser.len(), &ser);
+    let de = bincode::options().with_varint_encoding().deserialize::<Level>(&ser).unwrap();
+    assert!(level == de);
 }

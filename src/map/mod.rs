@@ -38,5 +38,7 @@ struct CellBundle {
     pub rigid_body: RigidBody,
 }
 
-
 pub use prelude::*;
+
+#[derive(Resource)]
+pub struct LoadedLevel(pub Handle<Level>);

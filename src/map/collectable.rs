@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use crate::animation::{Animations, Animation};
-
 use super::*;
 
 #[derive(Component, Clone, Deserialize, Serialize)]
@@ -109,14 +108,14 @@ impl MapObject for Collectable {
         let Some(animation) = terrain.get_animation(self.collectable_type.into()) else {error!("Animation for {:?} not loaded", self.collectable_type); return;};
         
         commands.spawn((
-            SpriteSheetBundle {
+            CellBundle {
                 transform: Transform::from_translation(pos),
                 texture_atlas: default(),
+                rigid_body: RigidBody::Fixed,
+                collider: Collider::ball(8.),
                 ..Default::default()
             },
             animation,
-            RigidBody::Fixed,
-            Collider::ball(8.),
             Sensor,
             Name::new("Collectable"),
             new_self,

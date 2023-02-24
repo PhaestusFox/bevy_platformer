@@ -38,16 +38,17 @@ impl MapObject for MapBox {
                 let offset_y = (self.offset.y as f32 + (size_y as f32 / 2.)) * 16. - 8.;
                 commands
                     .spawn((
-                        SpatialBundle {
+                        CellBundle {
                             transform: Transform::from_translation(Vec3::new(
                                 offset_x,
                                 offset_y,
                                 self.offset.z as f32,
                             )),
+                            collider: Collider::cuboid(8., size_y as f32 * 8.),
+                            rigid_body: RigidBody::Fixed,
                             ..Default::default()
                         },
-                        Collider::cuboid(8., size_y as f32 * 8.),
-                        RigidBody::Fixed,
+
                     ))
                     .with_children(|p| {
                         let range = if size_y % 2 == 1 {
@@ -86,16 +87,16 @@ impl MapObject for MapBox {
                 let offset_y = self.offset.y as f32 * 16.;
                 commands
                     .spawn((
-                        SpatialBundle {
+                        CellBundle {
                             transform: Transform::from_translation(Vec3::new(
                                 offset_x,
                                 offset_y,
                                 self.offset.z as f32,
                             )),
+                            collider: Collider::cuboid(size_x as f32 * 8., 8.),
+                            rigid_body: RigidBody::Fixed,
                             ..Default::default()
                         },
-                        Collider::cuboid(size_x as f32 * 8., 8.),
-                        RigidBody::Fixed,
                     ))
                     .with_children(|p| {
                         let range = if size_x % 2 == 1 {
@@ -134,16 +135,16 @@ impl MapObject for MapBox {
                 let offset_y = (self.offset.y + 1) as f32 * 16. - 8.;
                 commands
                     .spawn((
-                        SpatialBundle {
+                        CellBundle {
                             transform: Transform::from_translation(Vec3::new(
                                 offset_x,
                                 offset_y,
                                 self.offset.z as f32,
                             )),
+                            collider: Collider::cuboid(16., 16.),
+                            rigid_body: RigidBody::Fixed,
                             ..Default::default()
                         },
-                        Collider::cuboid(16., 16.),
-                        RigidBody::Fixed,
                     ))
                     .add_children(|p| {
                         map_data.set_full(IVec2::new(self.offset.x, self.offset.y));

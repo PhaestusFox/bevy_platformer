@@ -59,9 +59,7 @@ fn animate_sprite(
         let Some(animation) = animations.get(animation) else {error!("Animation Not Loaded"); continue;};
         frame_time.tick(time.delta());
         sprite.index += frame_time.frames();
-        if sprite.index >= animation.len {
-            sprite.index %= animation.len;
-        }
+        sprite.index %= animation.len;
     }
 }
 

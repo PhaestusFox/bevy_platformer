@@ -3,7 +3,7 @@ use bevy::{prelude::*, ecs::query::QuerySingleError};
 use crate::{
     animation::{Animation, Animations},
     player::{Grounded, GroundedCheck, Jump, Player, PlayerStages, RealPlayer},
-    user_input::PlayerInput, Score,
+    user_input::PlayerInput, Score, map::LoadedLevel,
 };
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
@@ -203,6 +203,7 @@ fn kill_player(
     ghosts: Query<Entity, With<Ghost>>,
     mut events: EventWriter<GhostEvents>,
     mut score: ResMut<Score>,
+    mut loaded_level: ResMut<LoadedLevel>,
 ) {
     let (player, mut pos, mut vel) = player.single_mut();
     for ghost in &ghosts {
@@ -212,8 +213,9 @@ fn kill_player(
             score.0 = 0;
             events.send(GhostEvents::ClearGhosts);
             events.send(GhostEvents::ClearTrail);
-            *pos = Transform::IDENTITY;
             *vel = Velocity::zero();
+            *pos = Transform::IDENTITY;
+            loaded_level.set_changed();
         };
     }
 }

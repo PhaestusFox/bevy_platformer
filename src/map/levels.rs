@@ -3,6 +3,8 @@ use bincode::Options;
 use serde::{Serialize, Deserialize, de::{Visitor, DeserializeSeed}};
 use super::*;
 
+const CURRENT_VERSION: u8 = 0;
+
 #[derive(TypeUuid, Default)]
 #[uuid = "e6b53f1c-9471-465c-b411-7729177acb9e"]
 pub struct Level {
@@ -20,7 +22,7 @@ impl Level {
         }
     }
     pub fn to_base64(&self) -> Result<String, bincode::Error> {
-        let mut bytes = vec![0];
+        let mut bytes = vec![CURRENT_VERSION];
         bincode::options().with_varint_encoding().serialize_into(&mut bytes, &self)?;
         Ok(base64::encode(bytes))
     }

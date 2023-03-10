@@ -5,16 +5,16 @@ use ghost::GhostEvents;
 use leafwing_input_manager::prelude::*;
 
 mod animation;
+mod editor;
 mod ghost;
-mod player;
-mod user_input;
 mod map;
 mod menu;
+mod player;
+mod user_input;
 
 use animation::*;
-use player::*;
 use map::*;
-
+use player::*;
 
 fn main() {
     App::new()
@@ -43,20 +43,21 @@ fn main() {
         .insert_resource(Score(0))
         .add_state(GameState::Menu)
         .add_plugin(menu::MenuPlugin)
+        .add_plugin(editor::LevelEditorPlugin)
         .run()
 }
 
+#[derive(Component)]
+struct MainCam;
+
 fn spawn_cam(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), MainCam));
 }
 
 #[derive(Debug, Resource)]
 struct CurrentLevel(Handle<Level>, bool);
 
-fn spawn_map(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+fn spawn_map(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(LoadedLevel(asset_server.load("Levels/test.lvl.ron")));
 }
 
@@ -98,4 +99,5 @@ enum GameState {
     Menu,
     InputLevelBase64,
     InputLevelName,
+    LevelEditor,
 }

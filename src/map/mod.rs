@@ -1,18 +1,18 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-mod tile_map;
 mod collectable;
-mod square;
 mod levels;
+mod square;
+mod tile_map;
 
 mod prelude {
+    pub use super::MapItem;
     use super::*;
-    pub use tile_map::{MapData, MapObject, MapEvent, TerrainMaterial, TerrainType};
-    pub use square::MapBox;
     pub use collectable::{Collectable, CollectableType, SpawnType};
     pub use levels::Level;
-    pub use super::MapItem;
+    pub use square::MapBox;
+    pub use tile_map::{MapData, MapEvent, MapObject, TerrainMaterial, TerrainType};
 }
 
 pub struct MapPlugin;

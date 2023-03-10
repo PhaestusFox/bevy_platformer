@@ -169,10 +169,16 @@ impl FromWorld for Animations {
             Animation::Strawberry,
             asset_server.load("Animations/Collectables.san.ron#Strawberry"),
         );
-        map.add_animation(Animation::Bananas, asset_server.load("Animations/Collectables.san.ron#Bananas"),);
+        map.add_animation(
+            Animation::Bananas,
+            asset_server.load("Animations/Collectables.san.ron#Bananas"),
+        );
 
         //terrain
-        map.add_atlas(Animation::Terrain, asset_server.load("Animations/Terrain.san.ron#Atlas"));
+        map.add_atlas(
+            Animation::Terrain,
+            asset_server.load("Animations/Terrain.san.ron#Atlas"),
+        );
 
         map
     }

@@ -1,16 +1,17 @@
+use super::*;
+use crate::animation::{Animation, Animations};
 use bevy::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use crate::animation::{Animations, Animation};
-use super::*;
 
-#[derive(Component, Clone, Deserialize, Serialize)]
+#[derive(Component, Clone, Deserialize, Serialize, Reflect)]
 pub struct Collectable {
     pub collectable_type: CollectableType,
     pub spawn_type: SpawnType,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, Reflect)]
+#[reflect_value()]
 pub enum CollectableType {
     Strawberry,
     Bananan,
@@ -25,7 +26,8 @@ impl Into<Animation> for CollectableType {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, Reflect)]
+#[reflect_value()]
 pub enum SpawnType {
     None,
     RandomRange(IVec2, IVec2),
@@ -38,11 +40,18 @@ pub enum SpawnType {
 const MAX_RNG_TRYS: usize = 50;
 
 impl MapObject for Collectable {
-    fn spawn(&self, terrain: &Animations, commands: &mut Commands, map_data: &mut MapData) {
+    fn spawn(
+        &self,
+        terrain: &Animations,
+        commands: &mut Commands,
+        map_data: &mut MapData,
+    ) -> Option<Entity> {
         let mut new_self = <Self as Clone>::clone(self);
         let mut set_none = false;
         let pos = match &mut new_self.spawn_type {
-            SpawnType::None => {return;}
+            SpawnType::None => {
+                return None;
+            }
             SpawnType::RandomRange(IVec2 { x: x0, y: y0 }, IVec2 { x: x1, y: y1 }) => {
                 let mut rng = rand::thread_rng();
                 let x_range = *x0.min(x1)..*x0.max(x1);
@@ -51,7 +60,7 @@ impl MapObject for Collectable {
                 loop {
                     if trys > MAX_RNG_TRYS {
                         error!("Too many rng trys");
-                        return;
+                        return None;
                     }
                     trys += 1;
                     let x = rng.gen_range(x_range.clone());
@@ -60,38 +69,40 @@ impl MapObject for Collectable {
                         break Vec3::new(x as f32 * 16., y as f32 * 16., 1.);
                     }
                 }
-            },
+            }
             SpawnType::RandomPoints(points) => {
                 if points.len() == 0 {
                     error!("No Random points given");
-                    return;
+                    return None;
                 }
                 let IVec2 { x, y } = points[rand::thread_rng().gen_range(0..points.len())];
                 Vec3::new(x as f32 * 16., y as f32 * 16., 1.)
-            },
+            }
             SpawnType::Fixed(IVec2 { x, y }) => {
                 set_none = true;
                 Vec3::new(*x as f32 * 16., *y as f32 * 16., 1.)
-            },
+            }
             SpawnType::Order(list, index) => {
                 if list.len() == 0 {
-                    error!("Order Can't Be Empty"); return;
+                    error!("Order Can't Be Empty");
+                    return None;
                 }
                 *index += 1;
                 *index %= list.len();
                 let IVec2 { x, y } = list[*index];
                 Vec3::new(x as f32 * 16., y as f32 * 16., 1.)
-            },
+            }
             SpawnType::OrderDec(list) => {
-                let Some(IVec2{x, y}) = list.pop() else {error!("OrderDec Can't Be Empty"); return;};
+                let Some(IVec2{x, y}) = list.pop() else {error!("OrderDec Can't Be Empty"); return None;};
                 if list.len() == 0 {
                     set_none = true;
                 }
                 Vec3::new(x as f32 * 16., y as f32 * 16., 1.)
-            },
+            }
             SpawnType::RandomPointsDec(points) => {
                 if points.len() == 0 {
-                    error!("RandomPointsDec Can't Be Empty"); return;
+                    error!("RandomPointsDec Can't Be Empty");
+                    return None;
                 } else if points.len() == 1 {
                     set_none = true;
                 }
@@ -105,29 +116,37 @@ impl MapObject for Collectable {
         if set_none {
             new_self.spawn_type = SpawnType::None;
         }
-        let Some(animation) = terrain.get_animation(self.collectable_type.into()) else {error!("Animation for {:?} not loaded", self.collectable_type); return;};
-        
-        commands.spawn((
-            CellBundle {
-                transform: Transform::from_translation(pos),
-                texture_atlas: default(),
-                rigid_body: RigidBody::Fixed,
-                collider: Collider::ball(8.),
-                ..Default::default()
-            },
-            animation,
-            Sensor,
-            Name::new("Collectable"),
-            new_self,
-        ));
+        let Some(animation) = terrain.get_animation(self.collectable_type.into()) else {error!("Animation for {:?} not loaded", self.collectable_type); return None;};
+
+        Some(
+            commands
+                .spawn((
+                    CellBundle {
+                        transform: Transform::from_translation(pos),
+                        texture_atlas: default(),
+                        rigid_body: RigidBody::Fixed,
+                        collider: Collider::ball(8.),
+                        ..Default::default()
+                    },
+                    animation,
+                    Sensor,
+                    Name::new("Collectable"),
+                    new_self,
+                ))
+                .id(),
+        )
     }
     fn object_type(&self) -> super::levels::MapObjectType {
         super::levels::MapObjectType::Collectable
     }
-    fn serializable(&self) -> bevy::reflect::serde::Serializable {
+    fn serialize(&self) -> bevy::reflect::serde::Serializable {
         bevy::reflect::serde::Serializable::Borrowed(self)
     }
     fn clone(&self) -> Box<dyn MapObject> {
         Box::new(<Self as Clone>::clone(self))
+    }
+
+    fn ui_draw(&self, commands: &mut Commands, root: Entity) {
+        todo!()
     }
 }

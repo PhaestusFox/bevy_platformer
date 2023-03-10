@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 bevy = {version = "0.9", features = ["serialize"]}
+bevy-inspector-egui = "*"
 bevy_editor_pls = {git = "https://github.com/jakobhellermann/bevy_editor_pls"}
 rand = "0.8"
 leafwing-input-manager = "0.8.0"

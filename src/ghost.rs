@@ -1,9 +1,11 @@
-use bevy::{prelude::*, ecs::query::QuerySingleError};
+use bevy::{ecs::query::QuerySingleError, prelude::*};
 
 use crate::{
     animation::{Animation, Animations},
+    map::LoadedLevel,
     player::{Grounded, GroundedCheck, Jump, Player, PlayerStages, RealPlayer},
-    user_input::PlayerInput, Score, map::LoadedLevel,
+    user_input::PlayerInput,
+    Score,
 };
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
@@ -238,7 +240,7 @@ fn auto_ghost(
         match event {
             GhostEvents::ClearGhosts => {
                 count_down.0.reset();
-            },
+            }
             _ => {}
         }
     }

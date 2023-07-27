@@ -19,13 +19,13 @@ use player::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_plugin(bevy_editor_pls::prelude::EditorPlugin)
-        .add_plugin(PhoxAnimationPlugin)
-        .add_startup_system(spawn_cam)
-        .add_startup_system(spawn_map)
-        .add_system(get_collectable)
+        .add_plugins(bevy_editor_pls::prelude::EditorPlugin::default())
+        .add_plugins(PhoxAnimationPlugin)
+        .add_systems(Startup, spawn_cam)
+        .add_systems(Startup, spawn_map)
+        .add_systems(Update, get_collectable)
         .register_type::<TextureAtlasSprite>()
-        .add_plugin(InputManagerPlugin::<user_input::PlayerInput>::default())
+        .add_plugins(InputManagerPlugin::<user_input::PlayerInput>::default())
         .insert_resource(RapierConfiguration {
             gravity: Vec2::Y * -294.,
             timestep_mode: TimestepMode::Fixed {
@@ -34,16 +34,15 @@ fn main() {
             },
             ..Default::default()
         })
-        .add_plugin(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(InspectableRapierPlugin)
-        .add_plugin(PlayerPlugin)
-        .add_plugin(MapPlugin)
-        .add_plugin(ghost::GhostPlugin)
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(16.))
+        .add_plugins(RapierDebugRenderPlugin::default())
+        .add_plugins(PlayerPlugin)
+        .add_plugins(MapPlugin)
+        .add_plugins(ghost::GhostPlugin)
         .insert_resource(Score(0))
-        .add_state(GameState::Menu)
-        .add_plugin(menu::MenuPlugin)
-        .add_plugin(editor::LevelEditorPlugin)
+        .add_state::<GameState>()
+        .add_plugins(menu::MenuPlugin)
+        .add_plugins(editor::LevelEditorPlugin)
         .run()
 }
 
@@ -93,9 +92,10 @@ fn get_collectable(
 #[derive(Resource)]
 struct Score(usize);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Component)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Component, States, Default)]
 enum GameState {
     Play,
+    #[default]
     Menu,
     InputLevelBase64,
     InputLevelName,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypeUuid, TypePath};
 
 use super::player::*;
 use super::*;
@@ -13,9 +13,9 @@ pub struct PhoxAnimationPlugin;
 impl Plugin for PhoxAnimationPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(animate_sprite)
-            .add_system(change_player_animation)
-            .add_system(update_animation_components)
-            .add_system_to_stage(CoreStage::Last, add_frame_time)
+            .add_systems(Update, change_player_animation)
+            .add_systems(Update, update_animation_components)
+            .add_systems(Last, add_frame_time)
             .add_asset::<SpriteAnimation>()
             .add_asset_loader(loader::AnimationLoader)
             .init_resource::<Animations>()
@@ -23,7 +23,7 @@ impl Plugin for PhoxAnimationPlugin {
     }
 }
 
-#[derive(TypeUuid)]
+#[derive(TypeUuid, TypePath)]
 #[uuid = "5b68f25a-835d-45f2-855d-94613a2da2fd"]
 pub struct SpriteAnimation {
     pub len: usize,

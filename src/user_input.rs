@@ -1,7 +1,7 @@
-use bevy::prelude::KeyCode;
+use bevy::{prelude::KeyCode, reflect::TypePath};
 use leafwing_input_manager::prelude::*;
 
-#[derive(Debug, Actionlike, Clone)]
+#[derive(Debug, Actionlike, Clone, TypePath)]
 pub enum PlayerInput {
     Left,
     Right,

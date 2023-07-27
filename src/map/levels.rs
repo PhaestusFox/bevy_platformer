@@ -2,7 +2,7 @@ use super::*;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypeUuid, TypePath},
 };
 use bincode::Options;
 use serde::{
@@ -12,7 +12,7 @@ use serde::{
 
 const CURRENT_VERSION: u8 = 0;
 
-#[derive(TypeUuid, Default)]
+#[derive(TypeUuid, Default, TypePath)]
 #[uuid = "e6b53f1c-9471-465c-b411-7729177acb9e"]
 pub struct Level {
     pub player_start: IVec2,

@@ -10,48 +10,18 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MenuFont>()
-            .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(setup_main_menu))
-            .add_system_set(SystemSet::on_update(GameState::Menu).with_system(state_buttons))
-            .add_system_set(SystemSet::on_exit(GameState::Menu).with_system(cleanup_menu))
-            .add_system_set(
-                SystemSet::on_enter(GameState::InputLevelBase64)
-                    .with_system(setup_level_select)
-                    .with_system(|mut editor: ResMut<bevy_editor_pls::EditorState>| {
-                        editor.listening_for_text = true
-                    }),
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::InputLevelBase64)
-                    .with_system(load_base64_level)
-                    .with_system(input_button),
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::InputLevelBase64)
-                    .with_system(|mut editor: ResMut<bevy_editor_pls::EditorState>| {
-                        editor.listening_for_text = false
-                    })
-                    .with_system(cleanup_menu),
-            )
-            .add_system_set(
-                SystemSet::on_enter(GameState::InputLevelName)
-                    .with_system(setup_level_select)
-                    .with_system(|mut editor: ResMut<bevy_editor_pls::EditorState>| {
-                        editor.listening_for_text = true
-                    }),
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::InputLevelName)
-                    .with_system(load_name_level)
-                    .with_system(input_button),
-            )
-            .add_system_set(
-                SystemSet::on_exit(GameState::InputLevelName)
-                    .with_system(|mut editor: ResMut<bevy_editor_pls::EditorState>| {
-                        editor.listening_for_text = false
-                    })
-                    .with_system(cleanup_menu),
-            )
-            .insert_resource(LevelString(String::new()));
+        .add_systems(OnEnter(GameState::Menu), setup_main_menu)
+        .add_systems(Update, state_buttons.run_if(in_state(GameState::Menu)))
+        .add_systems(OnExit(GameState::Menu), cleanup_menu)
+        .add_systems(OnEnter(GameState::InputLevelBase64), setup_level_select)
+        .add_systems(Update, (load_base64_level, input_button).run_if(in_state(GameState::InputLevelBase64)))
+        .add_systems(OnExit(GameState::InputLevelBase64), cleanup_menu)
+        
+        
+        .add_systems(OnEnter(GameState::InputLevelName), setup_level_select)
+        .add_systems(Update, (load_name_level, input_button).run_if(in_state(GameState::InputLevelName)))
+        .add_systems(OnExit(GameState::InputLevelName), cleanup_menu)
+        .insert_resource(LevelString(String::new()));
     }
 }
 
@@ -94,7 +64,8 @@ fn make_button<T: Bundle>(
                             color: Color::WHITE,
                         },
                     }],
-                    alignment: TextAlignment::CENTER,
+                    linebreak_behavior: bevy::text::BreakLineOn::WordBoundary,
+                    alignment: TextAlignment::Center,
                 },
                 ..Default::default()
             });
@@ -107,7 +78,8 @@ fn setup_main_menu(mut commands: Commands, font: Res<MenuFont>) {
             NodeBundle {
                 style: Style {
                     margin: UiRect::all(Val::Auto),
-                    size: Size::new(Val::Percent(25.), Val::Percent(66.)),
+                    width: Val::Percent(25.),
+                    height: Val::Percent(66.),
                     flex_wrap: FlexWrap::Wrap,
                     ..Default::default()
                 },
@@ -119,10 +91,10 @@ fn setup_main_menu(mut commands: Commands, font: Res<MenuFont>) {
         .with_children(|p| {
             let style = Style {
                 padding: UiRect::top(Val::Px(10.)),
-                size: Size::new(Val::Percent(100.), Val::Percent(20.)),
+                width: Val::Percent(100.),
+                height: Val::Percent(20.),
                 ..Default::default()
             };
-            Size::new(Val::Percent(100.), Val::Percent(20.));
             make_button(p, style.clone(), "Play", font.0.clone(), GameState::Play);
             make_button(
                 p,
@@ -155,7 +127,8 @@ fn setup_level_select(
             NodeBundle {
                 style: Style {
                     margin: UiRect::all(Val::Auto),
-                    size: Size::new(Val::Percent(66.), Val::Percent(50.)),
+                    width: Val::Percent(66.),
+                    height: Val::Percent(50.),
                     flex_wrap: FlexWrap::Wrap,
                     ..Default::default()
                 },
@@ -167,10 +140,10 @@ fn setup_level_select(
         .with_children(|p| {
             let style = Style {
                 padding: UiRect::top(Val::Px(10.)),
-                size: Size::new(Val::Percent(100.), Val::Percent(20.)),
+                width: Val::Percent(100.),
+                height: Val::Percent(20.),
                 ..Default::default()
             };
-            Size::new(Val::Percent(100.), Val::Percent(20.));
             make_button(
                 p,
                 style.clone(),
@@ -191,11 +164,11 @@ fn cleanup_menu(mut commands: Commands, query: Query<Entity, With<MenuItem>>) {
 
 fn state_buttons(
     query: Query<(&Interaction, &GameState), (With<Button>, Changed<Interaction>)>,
-    mut state: ResMut<State<GameState>>,
+    mut state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, next_state) in &query {
         match interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 let _ = state.set(*next_state);
             }
             _ => {}
@@ -216,14 +189,14 @@ fn load_base64_level(
     query: Query<(&Interaction, &GameState), (With<Button>, Changed<Interaction>)>,
     mut text: Query<&mut Text>,
     error: Query<&Children, With<InputError>>,
-    mut state: ResMut<State<GameState>>,
+    mut state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, gamestate) in &query {
         if GameState::Play != *gamestate {
             continue;
         }
         match interaction {
-            Interaction::Clicked => match Level::from_base64(&level.0) {
+            Interaction::Pressed => match Level::from_base64(&level.0) {
                 Ok(level) => {
                     *loaded_level = LoadedLevel(levels.add(level));
                     let _ = state.set(GameState::Play);
@@ -269,7 +242,7 @@ fn input_button(
         if key.char as u8 == 13 {
             for (mut button, state) in &mut buttons {
                 if *state == GameState::Play {
-                    *button = Interaction::Clicked;
+                    *button = Interaction::Pressed;
                 }
                 return;
             }
@@ -292,7 +265,7 @@ fn input_button(
             if *gamestate != GameState::InputLevelBase64 {
                 continue;
             }
-            style.size.height = Val::Percent(20. + (output.0.len() / 90) as f32 * 10.);
+            style.height = Val::Percent(20. + (output.0.len() / 90) as f32 * 10.);
             for child in children.iter() {
                 if let Ok(mut text) = text.get_mut(*child) {
                     text.sections[0].value = output.0.clone();
@@ -309,14 +282,14 @@ fn load_name_level(
     query: Query<(&Interaction, &GameState), (With<Button>, Changed<Interaction>)>,
     mut text: Query<&mut Text>,
     error: Query<&Children, With<InputError>>,
-    mut state: ResMut<State<GameState>>,
+    mut state: ResMut<NextState<GameState>>,
 ) {
     for (interaction, gamestate) in &query {
         if GameState::Play != *gamestate {
             continue;
         }
         match interaction {
-            Interaction::Clicked => {
+            Interaction::Pressed => {
                 loaded_level.0 = asset_server.load(format!("levels/{}.lvl.ron", level.0));
                 for children in error.iter() {
                     for child in children {

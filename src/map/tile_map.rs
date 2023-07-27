@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 
 use crate::animation::Animations;
-use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
+use bevy::{prelude::*, ecs::system::EntityCommands};
 use serde::{Deserialize, Serialize};
 
+#[derive(Event)]
 pub enum MapEvent {
     Spawn(Box<dyn MapObject>),
 }
@@ -59,7 +59,7 @@ pub trait MapObject: 'static + Send + Sync + std::any::Any + Reflect {
     fn object_type(&self) -> super::levels::MapObjectType;
     fn serialize(&self) -> bevy::reflect::serde::Serializable;
     fn clone(&self) -> Box<dyn MapObject>;
-    fn ui_draw(&self, commands: &mut Commands, root: Entity);
+    fn ui_draw(&self, commands: EntityCommands);
     fn ui_update(&mut self, func: fn(&mut dyn Reflect)) {
         func(self.as_reflect_mut())
     }

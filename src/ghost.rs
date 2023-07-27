@@ -17,16 +17,16 @@ impl Plugin for GhostPlugin {
         app.init_resource::<PlayerInputs>()
             .init_resource::<SyncOffset>()
             .insert_resource(PlayerFrame(0))
-            .add_system_to_stage(CoreStage::First, update_frame)
-            .add_system_to_stage(CoreStage::Last, save_player_state)
-            .add_system_to_stage(CoreStage::Last, save_player_offset)
-            .add_system(update_ghost.before(PlayerStages::Move))
-            .add_system_to_stage(CoreStage::Last, drift_correct)
-            .add_system(test_ghost)
+            .add_systems(First, update_frame)
+            .add_systems(Last, save_player_state)
+            .add_systems(Last, save_player_offset)
+            .add_systems(Last, drift_correct)
+            .add_systems(Update, update_ghost.before(PlayerStages::Move))
+            .add_systems(Update, test_ghost)
             .add_event::<GhostEvents>()
-            .add_system(handle_ghost_event)
-            .add_system(kill_player)
-            .add_system(auto_ghost);
+            .add_systems(Update, handle_ghost_event)
+            .add_systems(Update, kill_player)
+            .add_systems(Update, auto_ghost);
     }
 }
 
@@ -193,6 +193,7 @@ fn handle_ghost_event(
     }
 }
 
+#[derive(Event)]
 pub enum GhostEvents {
     ClearTrail,
     ClearGhosts,

@@ -1,4 +1,5 @@
 pub use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::*;
 
 use crate::{map::MapObject, GameState, animation::{Animations, Animation}, MainCam};
@@ -7,11 +8,9 @@ pub struct LevelEditorPlugin;
 
 impl Plugin for LevelEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_enter(GameState::LevelEditor).with_system(setup_level_editor),
-        );
-        app.add_system_set(SystemSet::on_exit(GameState::LevelEditor).with_system(cleanup_editor));
-        app.add_system(my_cursor_system);
+        app.add_systems(OnEnter(GameState::LevelEditor), setup_level_editor);
+        app.add_systems(OnExit(GameState::LevelEditor), cleanup_editor);
+        app.add_systems(Update, (my_cursor_system, spawn_new_obj).run_if(in_state(GameState::LevelEditor)));
     }
 }
 
@@ -36,9 +35,10 @@ fn make_item_button<C: Bundle, M: Bundle>(
     .set_parent(parent);
 }
 
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct LevelEditorState {
     current: Option<Box<dyn MapObject>>,
+    root: Entity,
 }
 
 fn setup_level_editor(
@@ -46,7 +46,10 @@ fn setup_level_editor(
     animations: Res<Animations>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.init_resource::<LevelEditorState>();
+    let level_editor = LevelEditorState {
+        root: commands.spawn(NodeBundle::default()).id(),
+        current: None,
+    };
     let p = commands.spawn((
         SpriteBundle {
             sprite: Sprite {
@@ -62,22 +65,24 @@ fn setup_level_editor(
         Name::new("EditorWindow")
     )).id();
     make_item_button(IVec2::new(0,0), &mut commands, (Sprite {
-                color: Color::DARK_GRAY,
-                custom_size: Some(Vec2 { x: 100., y: 100. }),
-                ..Default::default()
-            },
-            asset_server.load::<Image, _>("ui_buttion.png"),), (Handle::<TextureAtlas>::default(), TextureAtlasSprite{custom_size: Some(Vec2::splat(50.)), ..Default::default() }, animations.get_animation(Animation::Strawberry).expect("Animation loaded"), SpatialBundle::default()), p);
-    // commands.spawn((Handle::<TextureAtlas>::default(), TextureAtlasSprite::default(), animations.get_animation(Animation::Strawberry).expect("Animation loaded"), SpatialBundle::default())).set_parent(p);
+        color: Color::DARK_GRAY,
+        custom_size: Some(Vec2 { x: 100., y: 100. }),
+        ..Default::default()
+    },
+    asset_server.load::<Image, _>("ui_buttion.png"),), (Handle::<TextureAtlas>::default(), TextureAtlasSprite{custom_size: Some(Vec2::splat(50.)), ..Default::default() }, animations.get_animation(Animation::Strawberry).expect("Animation loaded"), SpatialBundle::default()), p);
+    commands.insert_resource(level_editor);
 }
 
 fn cleanup_editor(
     mut commands: Commands,
+    level_editor: Res<LevelEditorState>,
     query: Query<Entity, Or<(With<MainEditor>, With<SubEditor>, With<Shadow>)>>,
 ) {
     commands.remove_resource::<LevelEditorState>();
     for entity in &query {
         commands.entity(entity).despawn_recursive();
     }
+    commands.entity(level_editor.root).despawn_recursive();
 }
 
 #[derive(Component)]
@@ -91,7 +96,8 @@ struct Shadow;
 
 fn my_cursor_system(
     // need to get window dimensions
-    windows: Res<Windows>,
+    windows: Query<&Window>,
+    primary: Query<&Window, With<PrimaryWindow>>,
     // query to get camera transform
     camera_q: Query<(&Camera, &GlobalTransform), With<MainCam>>,
     click: Res<Input<MouseButton>>,
@@ -103,9 +109,12 @@ fn my_cursor_system(
 
     // get the window that the camera is displaying to (or the primary window)
     let window = if let bevy::render::camera::RenderTarget::Window(id) = camera.target {
-        windows.get(id).unwrap()
+        match id {
+            bevy::window::WindowRef::Primary => primary.single(),
+            bevy::window::WindowRef::Entity(e) => windows.get(e).unwrap(),
+        }
     } else {
-        windows.get_primary().unwrap()
+        primary.single()
     };
 
     // check if the cursor is inside the window and get its position
@@ -115,5 +124,21 @@ fn my_cursor_system(
         .map(|ray| ray.origin.truncate())
     {
         println!("World coords: {}/{}", (world_position.x / 16.).round(), (world_position.y / 16.).round());
+    }
+}
+
+fn spawn_new_obj(
+    mut commands: Commands,
+    editor_state: Res<LevelEditorState>,
+    children: Query<&Children>,
+) {
+    if !editor_state.is_changed() { return; }
+    if let Some(obj) = &editor_state.current {
+        if let Ok(c) = children.get(editor_state.root) {
+            for child in c {
+                commands.entity(*child).despawn_recursive();
+            }
+        }
+        obj.ui_draw(commands.entity(editor_state.root));
     }
 }

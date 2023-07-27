@@ -1,6 +1,6 @@
 use super::*;
 use crate::animation::{Animation, Animations};
-use bevy::prelude::*;
+use bevy::{prelude::*, ecs::system::EntityCommands};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -146,7 +146,7 @@ impl MapObject for Collectable {
         Box::new(<Self as Clone>::clone(self))
     }
 
-    fn ui_draw(&self, commands: &mut Commands, root: Entity) {
+    fn ui_draw(&self, commands: EntityCommands) {
         todo!()
     }
 }

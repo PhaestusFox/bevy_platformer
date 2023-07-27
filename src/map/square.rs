@@ -1,6 +1,6 @@
 use super::*;
 use crate::animation::{Animation, Animations};
-use bevy::prelude::*;
+use bevy::{prelude::*, ecs::system::EntityCommands};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Deserialize, Serialize, Reflect, Component)]
@@ -241,7 +241,7 @@ impl MapObject for MapBox {
     fn clone(&self) -> Box<dyn MapObject> {
         Box::new(<Self as Clone>::clone(self))
     }
-    fn ui_draw(&self, commands: &mut Commands, root: Entity) {
+    fn ui_draw(&self, commands: EntityCommands) {
         todo!()
     }
 }

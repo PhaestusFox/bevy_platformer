@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
 
-#[derive(SystemLabel)]
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum PlayerStages {
     Move,
 }
@@ -14,11 +14,11 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_player)
-            .add_system(move_player.label(PlayerStages::Move))
-            .add_system(ground_detection)
-            .add_system(dubble_jump.label(PlayerStages::Move).before(move_player))
-            .add_system(change_player.label(PlayerStages::Move))
-            .add_system(auto_step.label(PlayerStages::Move).before(move_player))
+            .add_systems(Update, move_player.in_set(PlayerStages::Move))
+            .add_systems(Update, ground_detection)
+            .add_systems(Update, dubble_jump.in_set(PlayerStages::Move).before(move_player))
+            .add_systems(Update, change_player.in_set(PlayerStages::Move))
+            .add_systems(Update, auto_step.in_set(PlayerStages::Move).before(move_player))
             .register_type::<Grounded>()
             .register_type::<Jump>()
             .register_type::<Player>();

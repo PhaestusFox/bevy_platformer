@@ -5,7 +5,7 @@ use crate::{
     map::LoadedLevel,
     player::{Grounded, GroundedCheck, Jump, Player, PlayerStages, RealPlayer},
     user_input::PlayerInput,
-    Score,
+    Score, GameState,
 };
 use bevy_rapier2d::prelude::*;
 use leafwing_input_manager::prelude::*;
@@ -26,7 +26,7 @@ impl Plugin for GhostPlugin {
             .add_event::<GhostEvents>()
             .add_systems(Update, handle_ghost_event)
             .add_systems(Update, kill_player)
-            .add_systems(Update, auto_ghost);
+            .add_systems(Update, auto_ghost.run_if(in_state(GameState::Play)));
     }
 }
 

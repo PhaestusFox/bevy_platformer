@@ -1,0 +1,55 @@
+.menu {
+    width: 33%;
+    margin: auto;
+    min-height: 50%;
+    background-color: gray;
+    padding: 10px;
+    flex-direction: column;
+}
+
+.menu button {
+    margin: auto;
+    width: 90%;
+    min-height: 25px;
+}
+
+.menu button label {
+    font-size: 50;
+}
+
+.menu textinput {
+    margin-left: auto;
+    margin-right: auto;
+    height: 50%;
+    max-height: 90%;
+    width: 90%;
+    min-height: 10px;
+}
+
+.level_editor {
+    position-type: absolute;
+    height: 100%;
+    right: 0px;
+    width: 25%;
+    background-color: lightgray;
+    padding: 25px;
+}
+
+.object_editor {
+    position-type: absolute;
+    bottom: 0px;
+    left: 0px;
+    width: 75%;
+    height: 25%;
+    background-color: #505050;
+}
+
+.icon {
+    width: 32px;
+    height: 32px;
+}
+
+.icon img {
+    width: 32px;
+    height: 32px;
+}

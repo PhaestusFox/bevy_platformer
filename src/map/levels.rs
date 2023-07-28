@@ -2,7 +2,7 @@ use super::*;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
-    reflect::{TypeUuid, TypePath},
+    reflect::{TypePath, TypeUuid},
 };
 use bincode::Options;
 use serde::{
@@ -72,6 +72,7 @@ pub enum LevelFields {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MapObjectType {
+    Empty,
     Box,
     Collectable,
 }
@@ -142,8 +143,9 @@ impl<'de> Visitor<'de> for ObjectsVisitor {
         let mut objects: Vec<Box<dyn MapObject>> = Vec::new();
         while let Some(key) = map.next_key::<MapObjectType>()? {
             match key {
+                MapObjectType::Empty => {},
                 MapObjectType::Box => {
-                    objects.push(Box::new(map.next_value::<MapBox>()?));
+                    objects.push(Box::new(map.next_value::<Square>()?));
                 }
                 MapObjectType::Collectable => {
                     objects.push(Box::new(map.next_value::<Collectable>()?));
@@ -219,10 +221,9 @@ fn test_serialize_level() {
     let level = Level {
         player_start: IVec2::new(0, 0),
         objects: vec![
-            Box::new(MapBox {
+            Box::new(Square {
                 offset: IVec3 { x: 10, y: 4, z: 0 },
-                width: 1,
-                hight: 1,
+                size: IVec2::new(1, 1),
                 material: TerrainMaterial::Gold,
             }),
             Box::new(Collectable {
@@ -242,10 +243,9 @@ fn bincode_serde() {
     let level = Level {
         player_start: IVec2::new(0, 0),
         objects: vec![
-            Box::new(MapBox {
+            Box::new(Square {
                 offset: IVec3 { x: 10, y: 4, z: 0 },
-                width: 1,
-                hight: 1,
+                size: IVec2::splat(1),
                 material: TerrainMaterial::Gold,
             }),
             Box::new(Collectable {

@@ -1,6 +1,6 @@
 use super::*;
 use crate::animation::{Animation, Animations};
-use bevy::{prelude::*, ecs::system::EntityCommands};
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,12 @@ use serde::{Deserialize, Serialize};
 pub struct Collectable {
     pub collectable_type: CollectableType,
     pub spawn_type: SpawnType,
+}
+
+impl Default for Collectable {
+    fn default() -> Self {
+        Collectable { collectable_type: CollectableType::Strawberry, spawn_type: SpawnType::None }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, Reflect)]
@@ -123,15 +129,17 @@ impl MapObject for Collectable {
                 .spawn((
                     CellBundle {
                         transform: Transform::from_translation(pos),
-                        texture_atlas: default(),
                         rigid_body: RigidBody::Fixed,
                         collider: Collider::ball(8.),
+                        item: new_self,
                         ..Default::default()
                     },
+
+                    Handle::<TextureAtlas>::default(),
+                    TextureAtlasSprite::default(),
                     animation,
                     Sensor,
                     Name::new("Collectable"),
-                    new_self,
                 ))
                 .id(),
         )
@@ -145,8 +153,16 @@ impl MapObject for Collectable {
     fn clone(&self) -> Box<dyn MapObject> {
         Box::new(<Self as Clone>::clone(self))
     }
+    fn set_full(&self, _: &mut MapData) {}
+}
 
-    fn ui_draw(&self, commands: EntityCommands) {
-        todo!()
+impl DrawProps for Collectable {
+    fn draw_props(_root: Entity) -> belly::core::eml::Eml {
+        use belly::prelude::*;
+        eml!(<label {_root} value="Collectable Not done"/>)
+    }
+    fn ui_draw(_editor: Entity) -> belly::core::eml::Eml {
+        use belly::prelude::*;
+        eml!(<label {_editor} value="Collectable Not done"/>)
     }
 }

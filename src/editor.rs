@@ -1,98 +1,62 @@
+use crate::{
+    animation::{Animation, Animations},
+    map::{MapObject, MapItem},
+    GameState, MainCam,
+};
+use belly::prelude::*;
 pub use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::*;
-
-use crate::{map::MapObject, GameState, animation::{Animations, Animation}, MainCam};
 
 pub struct LevelEditorPlugin;
 
 impl Plugin for LevelEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::LevelEditor), setup_level_editor);
+        app.add_systems(OnEnter(GameState::LevelEditor), setup_editor);
         app.add_systems(OnExit(GameState::LevelEditor), cleanup_editor);
-        app.add_systems(Update, (my_cursor_system, spawn_new_obj).run_if(in_state(GameState::LevelEditor)));
+        app.add_systems(
+            Update,
+            (my_cursor_system).run_if(in_state(GameState::LevelEditor)),
+        );
+        app.add_systems(
+            Update,
+            setup_props.run_if(resource_exists_and_changed::<LastObj>()),
+        );
     }
 }
 
-fn make_item_button<C: Bundle, M: Bundle>(
-    id: IVec2,
-    commands: &mut Commands,
-    main: M,
-    child: C,
-    parent: Entity,
-) {
-    commands.spawn((
-        SpatialBundle {
-            transform: Transform::from_translation(IVec2::new(-75 + id.x * 100, 310 - id.y * 100).as_vec2().extend(1.)),
-            ..Default::default()
-        },
-        Collider::cuboid(50., 50.),
-        main
-    ))
-    .with_children(|p| {
-        p.spawn(child);
-    })
-    .set_parent(parent);
-}
+#[derive(Component)]
+struct LevelRoot;
 
 #[derive(Resource)]
-pub struct LevelEditorState {
-    current: Option<Box<dyn MapObject>>,
-    root: Entity,
+pub struct LastObj(pub Option<Entity>);
+
+fn setup_editor(mut commands: Commands) {
+    println!("spawn");
+    let mut childern = Vec::new();
+    let editor = commands
+        .spawn(NodeBundle::default())
+        .with_children(|p| {
+            childern.push(p.spawn(NodeBundle::default()).id());
+        })
+        .id();
+    let next = childern.pop().expect("Exnugh childen for all objs");
+    commands.add(crate::map::Square::ui_draw(next));
+    commands.add(eml!(
+        <body>
+        <div c:level_editor {editor}>
+        </div>
+        <div c:object_editor>
+            <label value="Test"/>
+        </div>
+        </body>
+    ));
 }
 
-fn setup_level_editor(
-    mut commands: Commands,
-    animations: Res<Animations>,
-    asset_server: Res<AssetServer>,
-) {
-    let level_editor = LevelEditorState {
-        root: commands.spawn(NodeBundle::default()).id(),
-        current: None,
-    };
-    let p = commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::GRAY,
-                custom_size: Some(Vec2 { x: 250., y: 720. }),
-                ..Default::default()
-            },
-            texture: asset_server.load("ui_buttion.png"),
-            transform: Transform::from_translation(Vec3::new(((1280/2) - 125) as f32, 0., 0.)),
-            ..Default::default()
-        },
-        MainEditor,
-        Name::new("EditorWindow")
-    )).id();
-    make_item_button(IVec2::new(0,0), &mut commands, (Sprite {
-        color: Color::DARK_GRAY,
-        custom_size: Some(Vec2 { x: 100., y: 100. }),
-        ..Default::default()
-    },
-    asset_server.load::<Image, _>("ui_buttion.png"),), (Handle::<TextureAtlas>::default(), TextureAtlasSprite{custom_size: Some(Vec2::splat(50.)), ..Default::default() }, animations.get_animation(Animation::Strawberry).expect("Animation loaded"), SpatialBundle::default()), p);
-    commands.insert_resource(level_editor);
+fn cleanup_editor(mut elements: Elements) {
+    elements.select(".level_editor").remove();
+    elements.select(".object_editor").remove();
 }
-
-fn cleanup_editor(
-    mut commands: Commands,
-    level_editor: Res<LevelEditorState>,
-    query: Query<Entity, Or<(With<MainEditor>, With<SubEditor>, With<Shadow>)>>,
-) {
-    commands.remove_resource::<LevelEditorState>();
-    for entity in &query {
-        commands.entity(entity).despawn_recursive();
-    }
-    commands.entity(level_editor.root).despawn_recursive();
-}
-
-#[derive(Component)]
-struct MainEditor;
-
-#[derive(Component)]
-struct SubEditor;
-
-#[derive(Component)]
-struct Shadow;
 
 fn my_cursor_system(
     // need to get window dimensions
@@ -102,7 +66,9 @@ fn my_cursor_system(
     camera_q: Query<(&Camera, &GlobalTransform), With<MainCam>>,
     click: Res<Input<MouseButton>>,
 ) {
-    if !click.just_pressed(MouseButton::Left) {return;}
+    if !click.just_pressed(MouseButton::Left) {
+        return;
+    }
     // get the camera info and transform
     // assuming there is exactly one main camera entity, so query::single() is OK
     let (camera, camera_transform) = camera_q.single();
@@ -119,26 +85,48 @@ fn my_cursor_system(
 
     // check if the cursor is inside the window and get its position
     // then, ask bevy to convert into world coordinates, and truncate to discard Z
-    if let Some(world_position) = window.cursor_position()
+    if let Some(world_position) = window
+        .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
         .map(|ray| ray.origin.truncate())
     {
-        println!("World coords: {}/{}", (world_position.x / 16.).round(), (world_position.y / 16.).round());
+        println!(
+            "World coords: {}/{}",
+            (world_position.x / 16.).round(),
+            (world_position.y / 16.).round()
+        );
     }
 }
 
-fn spawn_new_obj(
-    mut commands: Commands,
-    editor_state: Res<LevelEditorState>,
-    children: Query<&Children>,
-) {
-    if !editor_state.is_changed() { return; }
-    if let Some(obj) = &editor_state.current {
-        if let Ok(c) = children.get(editor_state.root) {
-            for child in c {
-                commands.entity(*child).despawn_recursive();
-            }
-        }
-        obj.ui_draw(commands.entity(editor_state.root));
+fn setup_props(last: Res<LastObj>, mut elements: Elements, objs: Query<&MapItem>) {
+    elements.select(".object_editor *").remove();
+    if let Some(entity) = last.0 {
+        // let obj = objs.get(entity).expect("Object to have item");
+        // elements.select(".object_editor").add_child(obj.draw_props(entity));
+    } else {
+        elements.select(".object_editor").add_child(eml! {
+            <label value="add/select Object to see its props"/>
+        });
     }
 }
+
+pub trait DrawProps {
+    fn draw_props(root: Entity) -> belly::core::eml::Eml;
+    fn ui_draw(editor: Entity) -> belly::core::eml::Eml;
+}
+
+// fn spawn_new_obj(
+//     mut commands: Commands,
+//     editor_state: Res<LevelEditorState>,
+//     children: Query<&Children>,
+// ) {
+//     if !editor_state.is_changed() { return; }
+//     if let Some(obj) = &editor_state.current {
+//         if let Ok(c) = children.get(editor_state.root) {
+//             for child in c {
+//                 commands.entity(*child).despawn_recursive();
+//             }
+//         }
+//         obj.ui_draw(commands.entity(editor_state.root));
+//     }
+// }

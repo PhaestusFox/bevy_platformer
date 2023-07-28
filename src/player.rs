@@ -13,12 +13,18 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_player)
+        app.add_systems(Startup, spawn_player)
             .add_systems(Update, move_player.in_set(PlayerStages::Move))
             .add_systems(Update, ground_detection)
-            .add_systems(Update, dubble_jump.in_set(PlayerStages::Move).before(move_player))
+            .add_systems(
+                Update,
+                dubble_jump.in_set(PlayerStages::Move).before(move_player),
+            )
             .add_systems(Update, change_player.in_set(PlayerStages::Move))
-            .add_systems(Update, auto_step.in_set(PlayerStages::Move).before(move_player))
+            .add_systems(
+                Update,
+                auto_step.in_set(PlayerStages::Move).before(move_player),
+            )
             .register_type::<Grounded>()
             .register_type::<Jump>()
             .register_type::<Player>();
@@ -228,9 +234,6 @@ fn auto_step(
                     true,
                     QueryFilter::exclude_dynamic().exclude_sensors(),
                 );
-                if let Some((bonk, at)) = l_ray {
-                    println!("bonked ({:?} < {})", bonk, at)
-                }
                 if grounded.0 && l_ray.is_none() && r_ray.is_none() {
                     offset.translation.y += 16.1 - dis;
                 }

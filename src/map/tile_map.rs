@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
-use crate::animation::Animations;
-use bevy::{prelude::*, ecs::system::EntityCommands};
+use crate::{animation::Animations, GameState};
+use bevy::{prelude::*, reflect::DynamicTypePath};
 use serde::{Deserialize, Serialize};
+use bevy_inspector_egui::prelude::*;
 
 #[derive(Event)]
 pub enum MapEvent {
@@ -15,10 +16,10 @@ impl MapEvent {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, Serialize, Reflect)]
-#[reflect_value(Serialize)]
-#[allow(dead_code)]
+#[derive(Clone, Copy, Deserialize, Serialize, Reflect, Default, Debug, bevy_inspector_egui::InspectorOptions)]
+#[reflect(Serialize, InspectorOptions)]
 pub enum TerrainMaterial {
+    #[default]
     Gold = 193,
     Brick = 105,
     Copper = 188,
@@ -26,6 +27,7 @@ pub enum TerrainMaterial {
     Clay = 12,
 }
 
+#[derive(Clone, Copy)]
 pub enum TerrainType {
     OneLeft = 0,
     OneHorizontal = 1,
@@ -49,7 +51,7 @@ impl TerrainMaterial {
     }
 }
 
-pub trait MapObject: 'static + Send + Sync + std::any::Any + Reflect {
+pub trait MapObject: 'static + Send + Sync + std::any::Any + DynamicTypePath {
     fn spawn(
         &self,
         animation_data: &Animations,
@@ -59,39 +61,53 @@ pub trait MapObject: 'static + Send + Sync + std::any::Any + Reflect {
     fn object_type(&self) -> super::levels::MapObjectType;
     fn serialize(&self) -> bevy::reflect::serde::Serializable;
     fn clone(&self) -> Box<dyn MapObject>;
-    fn ui_draw(&self, commands: EntityCommands);
-    fn ui_update(&mut self, func: fn(&mut dyn Reflect)) {
-        func(self.as_reflect_mut())
-    }
+    fn set_full(&self, map: &mut MapData);
 }
 
-pub fn spawn_map_objects(
+pub(crate) fn spawn_map_objects(
     mut commands: Commands,
     mut events: EventReader<MapEvent>,
     terrain: Res<Animations>,
     mut map_data: ResMut<MapData>,
+    state: Res<State<GameState>>,
 ) {
+    let mut last = None;
     for event in events.iter() {
         match event {
             MapEvent::Spawn(obj) => {
                 let obj = obj.clone();
-                obj.spawn(&terrain, &mut commands, &mut map_data);
+                let entity = obj.spawn(&terrain, &mut commands, &mut map_data);
+                if entity.is_some() {
+                    last = entity;
+                }
             }
         }
+    }
+    if *state.get() == GameState::LevelEditor && last.is_some() {
+        commands.insert_resource(crate::editor::LastObj(last));
     }
 }
 
 #[derive(Default, Resource)]
 pub struct MapData {
-    empty: HashSet<IVec2>,
+    pub(super) need_correcting: bool,
+    full: HashSet<IVec2>,
 }
 
 impl MapData {
+    pub(crate) fn clear(&mut self) {
+        self.full.clear();
+    }
+
     pub fn is_empty(&self, cell: IVec2) -> bool {
-        !self.empty.contains(&cell)
+        !self.full.contains(&cell)
     }
 
     pub fn set_full(&mut self, cell: IVec2) {
-        self.empty.insert(cell);
+        self.full.insert(cell);
+    }
+
+    pub fn shrink(&mut self) {
+        self.need_correcting = true;
     }
 }

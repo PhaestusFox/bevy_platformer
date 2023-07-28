@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy::reflect::{TypeUuid, TypePath};
+use bevy::reflect::{TypePath, TypeUuid};
 
 use super::player::*;
 use super::*;

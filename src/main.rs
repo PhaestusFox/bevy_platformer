@@ -1,5 +1,5 @@
-use bevy::prelude::*;
-use bevy_inspector_egui_rapier::InspectableRapierPlugin;
+use bevy::{asset::ChangeWatcher, prelude::*};
+// use bevy_inspector_egui_rapier::InspectableRapierPlugin;
 use bevy_rapier2d::prelude::*;
 use ghost::GhostEvents;
 use leafwing_input_manager::prelude::*;
@@ -18,7 +18,16 @@ use player::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(AssetPlugin {
+                    watch_for_changes: ChangeWatcher::with_delay(std::time::Duration::from_millis(
+                        50,
+                    )),
+                    ..Default::default()
+                }),
+        )
         .add_plugins(bevy_editor_pls::prelude::EditorPlugin::default())
         .add_plugins(PhoxAnimationPlugin)
         .add_systems(Startup, spawn_cam)
@@ -43,6 +52,7 @@ fn main() {
         .add_state::<GameState>()
         .add_plugins(menu::MenuPlugin)
         .add_plugins(editor::LevelEditorPlugin)
+        .add_plugins(belly::prelude::BellyPlugin)
         .run()
 }
 

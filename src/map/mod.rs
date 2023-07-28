@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::TypePath};
 use bevy_rapier2d::prelude::*;
 
 mod collectable;
@@ -11,7 +11,7 @@ mod prelude {
     use super::*;
     pub use collectable::{Collectable, CollectableType, SpawnType};
     pub use levels::Level;
-    pub use square::MapBox;
+    pub use square::Square;
     pub use tile_map::{MapData, MapEvent, MapObject, TerrainMaterial, TerrainType};
 }
 
@@ -20,37 +20,83 @@ pub struct MapPlugin;
 impl bevy::prelude::Plugin for MapPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_event::<MapEvent>()
-            .add_system(tile_map::spawn_map_objects)
+            .add_systems(Update, tile_map::spawn_map_objects)
             .init_resource::<MapData>()
             .add_asset::<levels::Level>()
             .add_asset_loader(levels::LevelLoader)
             .init_resource::<LoadedLevel>()
-            .add_system(load_map);
+            .add_systems(Update, load_map)
+            .register_type::<Square>()
+            .register_type::<TerrainMaterial>()
+            .add_systems(Last, square::update_square);
     }
 }
 
-#[derive(Bundle, Default)]
-struct CellBundle {
+fn clear_old_map(mut map: ResMut<MapData>) {
+    map.clear();
+}
+
+fn finish_map_update(mut map: ResMut<MapData>) {
+    println!("Done: {}", map.need_correcting);
+    map.need_correcting = false;
+}
+
+#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy)]
+pub enum UpdateMap {
+    ClearOld,
+    Update,
+    Finish,
+}
+
+#[derive(Bundle)]
+struct CellBundle<T: MapObject + DrawProps + Component> {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
     pub computed_visibility: ComputedVisibility,
-    pub sprite: TextureAtlasSprite,
-    pub texture_atlas: Handle<TextureAtlas>,
     pub collider: Collider,
     pub rigid_body: RigidBody,
     pub map_item: MapItem,
+    pub item: T
+}
+
+impl<T: MapObject + Default + DrawProps + Component> Default for CellBundle<T> {
+    fn default() -> Self {
+        CellBundle {
+            transform: default(),
+            global_transform: default(),
+            visibility: default(),
+            computed_visibility: default(),
+            collider: default(),
+            rigid_body: default(),
+            map_item: MapItem::new::<T>(),
+            item: T::default()
+        }
+    }
 }
 
 pub use prelude::*;
 
 use crate::{ghost::GhostEvents, player::RealPlayer};
 
+use crate::editor::DrawProps;
+
 #[derive(Resource, Default)]
 pub struct LoadedLevel(pub Handle<Level>);
 
-#[derive(Component, Default)]
-pub struct MapItem;
+#[derive(Component, TypePath)]
+pub struct MapItem(
+    fn(root: Entity) -> belly::core::eml::Eml
+);
+
+impl MapItem {
+    pub fn new<T: DrawProps>() -> MapItem {
+        MapItem(T::draw_props)
+    }
+    pub fn draw_props(&self, root: Entity) -> belly::core::eml::Eml {
+        (self.0)(root)
+    }
+}
 
 fn load_map(
     mut map_event: EventWriter<MapEvent>,
